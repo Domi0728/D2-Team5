@@ -1,0 +1,9 @@
+build/
+data/*
+!data/.gitkeep
+*.db
+*.db-wal
+*.db-shm
+__pycache__/
+.env
+*.log
