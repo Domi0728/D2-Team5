@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>通用导航栏 · MUST 校园同路</title>
+  <link rel="stylesheet" href="../styles/app.css">
+</head>
+<body data-page="components">
+  <header class="navbar" data-component="navbar">
+    <a class="brand" data-href="views/auth/Register.html">MUST 校园同路</a>
+    <ul class="nav-links">
+      <li><a class="nav-link" data-nav="register" data-href="views/auth/Register.html">注册</a></li>
+      <li><a class="nav-link" data-nav="profile" data-href="views/profile/Profile.html">个人资料</a></li>
+      <li><a class="nav-link" data-nav="publish" data-href="views/ride/PublishRide.html">发布行程</a></li>
+      <li><a class="nav-link" data-nav="notifications" data-href="views/interaction/Notifications.html">通知中心</a></li>
+    </ul>
+    <span id="verify-badge" class="badge">未登录</span>
+  </header>
+  <main class="page">
+    <section class="card component-note">
+      <h1>通用导航栏</h1>
+      <p class="lede">公共页头组件，供注册、个人资料、发布行程和通知中心复用。这里只放导航和身份状态，不放某一次行程的业务数据。</p>
+      <p class="hint">未登录或未通过学生身份验证时，「发布行程」入口不可用。</p>
+    </section>
+  </main>
+  <script src="../scripts/crm.js"></script>
+</body>
+</html>

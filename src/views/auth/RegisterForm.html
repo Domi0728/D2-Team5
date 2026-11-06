@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>用户注册 · MUST 校园同路</title>
+  <link rel="stylesheet" href="../../styles/app.css">
+  <style>
+    .register-container {
+      max-width: 480px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 0 32px;
+    }
+
+    .register-header {
+      text-align: center;
+      margin-bottom: 56px;
+      animation: fadeInUp 0.8s ease-out;
+    }
+
+    .register-header h1 {
+      font-size: 32px;
+      font-weight: 400;
+      margin: 0 0 12px;
+      color: var(--ink);
+      letter-spacing: 0.02em;
+    }
+
+    .register-header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    .register-form {
+      display: grid;
+      gap: 28px;
+      animation: fadeInUp 0.8s ease-out 0.1s backwards;
+    }
+
+    .form-field {
+      display: grid;
+      gap: 8px;
+    }
+
+    .form-field label {
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--muted);
+      letter-spacing: 0.01em;
+    }
+
+    .form-field input {
+      width: 100%;
+      height: 48px;
+      padding: 0 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--ink);
+      font: inherit;
+      font-size: 15px;
+      transition: all 0.2s ease;
+    }
+
+    .form-field input:hover {
+      border-color: #c8c5bd;
+    }
+
+    .form-field input:focus {
+      outline: none;
+      border-color: var(--muted);
+      background: rgba(255, 255, 255, 0.6);
+    }
+
+    .form-field input::placeholder {
+      color: #b8b5ad;
+    }
+
+    .field-hint {
+      margin: 0;
+      font-size: 13px;
+      color: var(--muted);
+      opacity: 0.8;
+    }
+
+    .field-error {
+      margin: 0;
+      font-size: 13px;
+      color: var(--danger);
+      opacity: 0;
+      transform: translateY(-4px);
+      transition: all 0.2s ease;
+    }
+
+    .field-error:not([hidden]) {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 16px;
+      margin-top: 8px;
+      animation: fadeInUp 0.8s ease-out 0.2s backwards;
+    }
+
+    .form-actions .btn {
+      flex: 1;
+      min-height: 48px;
+      padding: 0 24px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 400;
+      transition: all 0.2s ease;
+    }
+
+    .form-actions .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    }
+
+    .status-message {
+      padding: 20px;
+      border-radius: 8px;
+      background: var(--warn-bg);
+      border: 1px solid #efd7ae;
+      animation: fadeIn 0.6s ease-out;
+    }
+
+    .status-message strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--warn);
+      font-weight: 500;
+      font-size: 15px;
+    }
+
+    .status-message p {
+      margin: 0;
+      color: var(--warn);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .form-footer {
+      text-align: center;
+      margin-top: 32px;
+      color: var(--muted);
+      font-size: 14px;
+      animation: fadeInUp 0.8s ease-out 0.3s backwards;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 600px) {
+      .register-container {
+        padding: 0 24px;
+      }
+    }
+  </style>
+</head>
+<body data-page="register">
+  <header class="navbar" data-component="navbar">
+    <a class="brand" href="Register.html">MUST 校园同路</a>
+    <ul class="nav-links">
+      <li><a class="nav-link" data-nav="profile" href="../profile/Profile.html">个人资料</a></li>
+      <li><a class="nav-link" data-nav="publish" href="../ride/PublishRide.html">发布行程</a></li>
+      <li><a class="nav-link" data-nav="notifications" href="../interaction/Notifications.html">通知中心</a></li>
+    </ul>
+    <span id="verify-badge" class="badge">未登录</span>
+  </header>
+
+  <main class="page" style="justify-content: flex-start; padding-top: 100px; padding-bottom: 80px;">
+    <div class="register-container">
+      <div class="register-header">
+        <h1>创建账号</h1>
+        <p>使用学号注册澳门科技大学学生账号<br>提交后进入未审核状态，通过学生身份验证前不能发布或加入行程</p>
+      </div>
+
+      <div id="pending-panel" class="status-message" hidden>
+        <strong>当前状态：未审核</strong>
+        <p id="pending-copy">注册已提交。学生身份验证通过前，发布和加入入口不可用。</p>
+      </div>
+
+      <form id="register-form" class="register-form" novalidate>
+        <div class="form-field">
+          <label for="student-id">学号</label>
+          <input id="student-id" name="studentId" inputmode="numeric" autocomplete="username" required placeholder="请输入 6 到 12 位学号">
+          <small class="field-error" data-for="student-id" hidden></small>
+        </div>
+
+        <div class="form-field">
+          <label for="real-name">姓名</label>
+          <input id="real-name" name="name" autocomplete="name" required placeholder="请输入真实姓名">
+          <small class="field-error" data-for="real-name" hidden></small>
+        </div>
+
+        <div class="form-field">
+          <label for="password">密码</label>
+          <input id="password" name="password" type="password" autocomplete="new-password" required placeholder="请设置至少 6 位密码">
+          <p class="field-hint">至少 6 位，页面不会回显密码</p>
+          <small class="field-error" data-for="password" hidden></small>
+        </div>
+
+        <div class="form-field">
+          <label for="nickname">昵称</label>
+          <input id="nickname" name="nickname" maxlength="20" required placeholder="请输入昵称（20 字以内）">
+          <small class="field-error" data-for="nickname" hidden></small>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn" type="submit">提交注册</button>
+          <a class="btn secondary" href="Login.html">已有账号</a>
+        </div>
+      </form>
+
+      <p class="form-footer">提交后账号保持未审核，验证通过前不能发布或加入行程</p>
+    </div>
+  </main>
+
+  <script src="../../scripts/crm.js"></script>
+  <script>
+    var form = document.getElementById("register-form");
+    var pendingPanel = document.getElementById("pending-panel");
+
+    function showFieldError(id, message) {
+      var node = document.querySelector('[data-for="' + id + '"]');
+      if (!node) return;
+      node.hidden = !message;
+      node.textContent = message || "";
+    }
+
+    function showPending(user) {
+      pendingPanel.hidden = false;
+      document.getElementById("pending-copy").textContent =
+        user.nickname + "（学号 " + user.studentId + "）已注册，当前状态：未审核。学生身份验证通过前，不能发布或加入行程。";
+      form.hidden = true;
+      document.querySelector(".form-footer").hidden = true;
+    }
+
+    var existing = CRM.getUser();
+    if (existing && existing.status !== "verified") showPending(existing);
+
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var studentId = document.getElementById("student-id").value.trim();
+      var name = document.getElementById("real-name").value.trim();
+      var password = document.getElementById("password").value;
+      var nickname = document.getElementById("nickname").value.trim();
+      var valid = true;
+
+      showFieldError("student-id", /^\d{6,12}$/.test(studentId) ? "" : "请输入 6 到 12 位学号");
+      showFieldError("real-name", name ? "" : "请填写姓名");
+      showFieldError("password", password.length >= 6 ? "" : "密码至少 6 位");
+      showFieldError("nickname", nickname ? "" : "请填写昵称");
+
+      if (!/^\d{6,12}$/.test(studentId) || !name || password.length < 6 || !nickname) valid = false;
+      if (!valid) return;
+
+      var user = {
+        studentId: studentId,
+        name: name,
+        nickname: nickname,
+        password: password,
+        status: "pending",
+        phone: "",
+        wechat: "",
+        email: "",
+        privacy: { phone: false, wechat: false, email: false }
+      };
+      CRM.saveUser(user);
+      showPending(user);
+    });
+
+    ["student-id", "real-name", "password", "nickname"].forEach(function(id) {
+      var input = document.getElementById(id);
+      input.addEventListener("focus", function() {
+        input.parentElement.classList.add("focused");
+      });
+      input.addEventListener("blur", function() {
+        input.parentElement.classList.remove("focused");
+      });
+    });
+  </script>
+</body>
+</html>

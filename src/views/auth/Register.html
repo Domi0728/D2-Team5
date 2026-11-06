@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>用户注册 · MUST 校园同路</title>
+  <link rel="stylesheet" href="../../styles/app.css">
+</head>
+<body data-page="register">
+  <header class="navbar" data-component="navbar">
+    <a class="brand" data-href="views/auth/Register.html">MUST 校园同路</a>
+    <ul class="nav-links">
+      <li><a class="nav-link" data-nav="register" data-href="views/auth/Register.html">注册</a></li>
+      <li><a class="nav-link" data-nav="profile" data-href="views/profile/Profile.html">个人资料</a></li>
+      <li><a class="nav-link" data-nav="publish" data-href="views/ride/PublishRide.html">发布行程</a></li>
+      <li><a class="nav-link" data-nav="notifications" data-href="views/interaction/Notifications.html">通知中心</a></li>
+    </ul>
+    <span id="verify-badge" class="badge">未登录</span>
+  </header>
+
+  <main class="page">
+    <div class="page-head">
+      <h1>用户注册</h1>
+      <p class="lede">使用学号注册澳门科技大学学生账号。提交后进入未审核状态，通过学生身份验证前不能发布或加入行程。</p>
+    </div>
+
+    <section class="card">
+      <div id="pending-panel" class="status-panel" hidden>
+        <strong>当前状态：未审核</strong>
+        <p id="pending-copy">注册已提交。学生身份验证通过前，发布和加入入口不可用。</p>
+      </div>
+
+      <form id="register-form" class="form-grid" novalidate>
+        <label class="field">
+          <span>学号</span>
+          <input id="student-id" name="studentId" inputmode="numeric" autocomplete="username" required>
+          <small class="field-error" data-for="student-id" hidden></small>
+        </label>
+        <label class="field">
+          <span>姓名</span>
+          <input id="real-name" name="name" autocomplete="name" required>
+          <small class="field-error" data-for="real-name" hidden></small>
+        </label>
+        <label class="field">
+          <span>密码</span>
+          <input id="password" name="password" type="password" autocomplete="new-password" required>
+          <small class="hint">至少 6 位。页面不会回显密码。</small>
+          <small class="field-error" data-for="password" hidden></small>
+        </label>
+        <label class="field">
+          <span>昵称</span>
+          <input id="nickname" name="nickname" maxlength="20" required>
+          <small class="field-error" data-for="nickname" hidden></small>
+        </label>
+        <p class="hint">提交后账号保持未审核。验证通过前，不能发布或加入行程。</p>
+        <div class="actions">
+          <button class="btn" type="submit">提交注册</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script src="../../scripts/crm.js"></script>
+  <script>
+    var form = document.getElementById("register-form");
+    var pendingPanel = document.getElementById("pending-panel");
+
+    function showFieldError(id, message) {
+      var node = document.querySelector('[data-for="' + id + '"]');
+      if (!node) return;
+      node.hidden = !message;
+      node.textContent = message || "";
+    }
+
+    function showPending(user) {
+      pendingPanel.hidden = false;
+      document.getElementById("pending-copy").textContent =
+        user.nickname + "（学号 " + user.studentId + "）已注册，当前状态：未审核。学生身份验证通过前，不能发布或加入行程。";
+      form.hidden = true;
+    }
+
+    var existing = CRM.getUser();
+    if (existing && existing.status !== "verified") showPending(existing);
+
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var studentId = document.getElementById("student-id").value.trim();
+      var name = document.getElementById("real-name").value.trim();
+      var password = document.getElementById("password").value;
+      var nickname = document.getElementById("nickname").value.trim();
+      var valid = true;
+
+      showFieldError("student-id", /^\d{6,12}$/.test(studentId) ? "" : "请输入 6 到 12 位学号。");
+      showFieldError("real-name", name ? "" : "请填写姓名。");
+      showFieldError("password", password.length >= 6 ? "" : "密码至少 6 位。");
+      showFieldError("nickname", nickname ? "" : "请填写昵称。");
+      if (!/^\d{6,12}$/.test(studentId) || !name || password.length < 6 || !nickname) valid = false;
+      if (!valid) return;
+
+      var user = {
+        studentId: studentId,
+        name: name,
+        nickname: nickname,
+        status: "pending",
+        phone: "",
+        wechat: "",
+        email: "",
+        privacy: { phone: false, wechat: false, email: false }
+      };
+      CRM.saveUser(user);
+      showPending(user);
+    });
+  </script>
+</body>
+</html>

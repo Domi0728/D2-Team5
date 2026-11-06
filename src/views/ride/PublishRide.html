@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>发布行程 · MUST 校园同路</title>
+  <link rel="stylesheet" href="../../styles/app.css">
+</head>
+<body data-page="publish">
+  <header class="navbar" data-component="navbar">
+    <a class="brand" data-href="views/auth/Register.html">MUST 校园同路</a>
+    <ul class="nav-links">
+      <li><a class="nav-link" data-nav="register" data-href="views/auth/Register.html">注册</a></li>
+      <li><a class="nav-link" data-nav="profile" data-href="views/profile/Profile.html">个人资料</a></li>
+      <li><a class="nav-link" data-nav="publish" data-href="views/ride/PublishRide.html">发布行程</a></li>
+      <li><a class="nav-link" data-nav="notifications" data-href="views/interaction/Notifications.html">通知中心</a></li>
+    </ul>
+    <span id="verify-badge" class="badge">未登录</span>
+  </header>
+
+  <main class="page">
+    <div class="page-head">
+      <h1>发布出行需求</h1>
+      <p class="lede">填写方向、日期、出发时间、容差和容量。系统只匹配同方向、同一日期，且出发时间差不超过 15 分钟的行程。</p>
+    </div>
+
+    <section class="card">
+      <p id="publish-gate" class="result result--unverified" hidden></p>
+      <form id="publish-form" class="form-grid" novalidate>
+        <fieldset id="publish-fields" disabled>
+          <label class="field">
+            <span>起点</span>
+            <select id="origin" name="origin" required></select>
+          </label>
+          <label class="field">
+            <span>终点</span>
+            <select id="destination" name="destination" required></select>
+          </label>
+          <label class="field">
+            <span>日期</span>
+            <input id="ride-date" name="date" type="date" required>
+            <small class="hint">只与同一日期、相同方向的行程匹配。相反方向或不同日期不能成为候选。</small>
+          </label>
+          <label class="field">
+            <span>出发时间</span>
+            <input id="depart-time" name="time" type="time" required>
+          </label>
+          <label class="field">
+            <span>容差窗口（分钟）</span>
+            <input id="tolerance" name="tolerance" type="number" min="0" max="60" step="1" value="15" required>
+            <small id="window-hint" class="hint">默认容差 ±15 分钟。时间差大于 15 分钟不能匹配。</small>
+          </label>
+          <label class="field">
+            <span>人数容量（含组织者）</span>
+            <select id="capacity" name="capacity">
+              <option value="2">2 人</option>
+              <option value="3">3 人</option>
+              <option value="4">4 人</option>
+              <option value="5">5 人</option>
+              <option value="6" selected>6 人（默认上限）</option>
+            </select>
+            <small id="capacity-hint" class="hint">容量含组织者本人。未单独设定时最多 6 人。容量 4 表示组织者加 3 位同行者。</small>
+          </label>
+          <div class="actions">
+            <button class="btn" type="submit">发布行程</button>
+          </div>
+        </fieldset>
+      </form>
+      <p id="publish-result" class="result" hidden></p>
+    </section>
+  </main>
+
+  <script src="../../scripts/crm.js"></script>
+  <script>
+    var PLACES = ["图书馆", "东门", "西门", "学生宿舍", "教学楼", "体育馆"];
+    var originSelect = document.getElementById("origin");
+    var destinationSelect = document.getElementById("destination");
+    var fields = document.getElementById("publish-fields");
+    var gate = document.getElementById("publish-gate");
+    var result = document.getElementById("publish-result");
+
+    function fillPlaces(select, selected) {
+      select.replaceChildren();
+      PLACES.forEach(function (place) {
+        var option = document.createElement("option");
+        option.value = place;
+        option.textContent = place;
+        option.selected = place === selected;
+        select.append(option);
+      });
+    }
+
+    function pad(value) {
+      return String(value).padStart(2, "0");
+    }
+
+    function clock(total) {
+      var minutes = ((total % (24 * 60)) + (24 * 60)) % (24 * 60);
+      return pad(Math.floor(minutes / 60)) + ":" + pad(minutes % 60);
+    }
+
+    function refreshHints() {
+      var time = document.getElementById("depart-time").value;
+      var tolerance = Number(document.getElementById("tolerance").value);
+      var windowHint = document.getElementById("window-hint");
+      if (time && isFinite(tolerance)) {
+        var mid = CRM.toMinutes(time);
+        windowHint.textContent = "可匹配时间：" + time + " ± " + tolerance + " 分钟（" + clock(mid - tolerance) + "–" + clock(mid + tolerance) + "）。大于 15 分钟不能匹配。";
+      }
+      var capacity = Number(document.getElementById("capacity").value);
+      document.getElementById("capacity-hint").textContent =
+        "当前容量 " + capacity + " 人，含组织者，最多再加入 " + (capacity - 1) + " 人。上限为 6 人。";
+    }
+
+    fillPlaces(originSelect, "图书馆");
+    fillPlaces(destinationSelect, "东门");
+    document.getElementById("ride-date").value = "2026-11-05";
+    document.getElementById("depart-time").value = "08:00";
+
+    var user = CRM.getUser();
+    if (CRM.isVerified(user)) {
+      fields.disabled = false;
+      gate.hidden = true;
+    } else {
+      fields.disabled = true;
+      CRM.showResult(gate, "unverified", user
+        ? "当前状态为未审核，发布入口不可用。请先完成学生身份验证。"
+        : "请先注册并完成学生身份验证。未登录时不能发布行程。");
+    }
+
+    ["depart-time", "tolerance", "capacity"].forEach(function (id) {
+      document.getElementById(id).addEventListener("input", refreshHints);
+    });
+    refreshHints();
+
+    document.getElementById("publish-form").addEventListener("submit", function (event) {
+      event.preventDefault();
+      user = CRM.getUser();
+      if (!CRM.isVerified(user)) {
+        CRM.showResult(result, "unverified");
+        return;
+      }
+
+      var ride = {
+        id: "ride-" + Date.now(),
+        origin: originSelect.value,
+        destination: destinationSelect.value,
+        date: document.getElementById("ride-date").value,
+        time: document.getElementById("depart-time").value,
+        tolerance: Number(document.getElementById("tolerance").value),
+        capacity: Number(document.getElementById("capacity").value),
+        members: 1,
+        ownerId: user.studentId
+      };
+
+      if (!ride.date || ride.origin === ride.destination) {
+        CRM.showResult(result, "direction", "请选择不同的起点和终点，并填写出发日期。只匹配同方向、同一日期的行程。");
+        return;
+      }
+      if (!isFinite(ride.tolerance) || ride.tolerance > 15) {
+        CRM.showResult(result, "tolerance", "容差窗口大于 15 分钟。出发时间差超过 ±15 分钟的行程不能匹配。");
+        return;
+      }
+      if (!isFinite(ride.capacity) || ride.capacity < 1 || ride.capacity > 6) {
+        CRM.showResult(result, "full", "人数容量含组织者，不能超过 6 人。");
+        return;
+      }
+
+      var existing = CRM.getRides().concat(CRM.getJoined());
+      var clash = existing.some(function (item) { return CRM.windowsOverlap(item, ride); });
+      if (clash) {
+        CRM.showResult(result, "conflict", "该出发时间与你已发布或已加入的行程重叠。例如已有 08:00 的行程时，不能再加入 08:10 的行程。");
+        return;
+      }
+
+      var rides = CRM.getRides();
+      rides.push(ride);
+      CRM.saveRides(rides);
+      CRM.showResult(result, "success", "已发布 " + ride.origin + " → " + ride.destination + "，" + ride.date + " " + ride.time + "，容量 " + ride.capacity + " 人。");
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>个人资料 · MUST 校园同路</title>
+  <link rel="stylesheet" href="../../styles/app.css">
+  <style>
+    .profile-container {
+      max-width: 720px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 0 32px;
+    }
+
+    .profile-header {
+      text-align: center;
+      margin-bottom: 48px;
+      animation: fadeInUp 0.8s ease-out;
+    }
+
+    .profile-header h1 {
+      font-size: 32px;
+      font-weight: 400;
+      margin: 0 0 12px;
+      color: var(--ink);
+    }
+
+    .profile-header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .profile-section {
+      margin-bottom: 48px;
+      animation: fadeInUp 0.8s ease-out 0.1s backwards;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--ink);
+      margin: 0 0 20px;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 16px 24px;
+      margin-bottom: 32px;
+    }
+
+    .info-label {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .info-value {
+      color: var(--ink);
+      font-size: 14px;
+    }
+
+    .form-grid {
+      display: grid;
+      gap: 24px;
+    }
+
+    .form-field {
+      display: grid;
+      gap: 8px;
+    }
+
+    .form-field label {
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--muted);
+    }
+
+    .form-field input {
+      width: 100%;
+      height: 48px;
+      padding: 0 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--ink);
+      font: inherit;
+      font-size: 15px;
+      transition: all 0.2s ease;
+    }
+
+    .form-field input:hover {
+      border-color: #c8c5bd;
+    }
+
+    .form-field input:focus {
+      outline: none;
+      border-color: var(--muted);
+      background: rgba(255, 255, 255, 0.6);
+    }
+
+    .switch-list {
+      display: grid;
+      gap: 16px;
+    }
+
+    .switch-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: transparent;
+      transition: all 0.2s ease;
+    }
+
+    .switch-row:hover {
+      border-color: #c8c5bd;
+    }
+
+    .switch-row input {
+      width: 20px;
+      height: 20px;
+    }
+
+    .switch-row span {
+      font-size: 14px;
+      color: var(--ink);
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .btn {
+      min-height: 48px;
+      padding: 0 32px;
+      border-radius: 8px;
+      font-size: 15px;
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    }
+
+    .success-message {
+      padding: 16px;
+      background: transparent;
+      border: 1px solid #b7e0c8;
+      border-radius: 8px;
+      color: var(--ok);
+      font-size: 14px;
+      text-align: center;
+      animation: fadeIn 0.6s ease-out;
+    }
+
+    .history-list {
+      display: grid;
+      gap: 16px;
+    }
+
+    .history-item {
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: transparent;
+      transition: all 0.2s ease;
+    }
+
+    .history-item:hover {
+      border-color: #c8c5bd;
+    }
+
+    .history-title {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--ink);
+      margin: 0 0 8px;
+    }
+
+    .history-meta {
+      font-size: 13px;
+      color: var(--muted);
+      margin: 0;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @media (max-width: 600px) {
+      .profile-container {
+        padding: 0 24px;
+      }
+      .info-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+    }
+  </style>
+</head>
+<body data-page="profile">
+  <header class="navbar" data-component="navbar">
+    <a class="brand" href="Register.html">MUST 校园同路</a>
+    <ul class="nav-links">
+      <li><a class="nav-link" data-nav="profile" href="../profile/Profile.html">个人资料</a></li>
+      <li><a class="nav-link" data-nav="publish" href="../ride/PublishRide.html">发布行程</a></li>
+      <li><a class="nav-link" data-nav="notifications" href="../interaction/Notifications.html">通知中心</a></li>
+    </ul>
+    <span id="verify-badge" class="badge">未登录</span>
+  </header>
+
+  <main class="page" style="justify-content: flex-start; padding-top: 100px; padding-bottom: 80px;">
+    <div class="profile-container">
+      <div class="profile-header">
+        <h1>个人资料</h1>
+        <p>查看和修改你的资料，控制联系方式的公开范围</p>
+      </div>
+
+      <div id="guest-card" class="profile-section" hidden>
+        <p class="empty-state">尚未登录，请先<a href="Login.html">登录</a>或<a href="RegisterForm.html">注册</a></p>
+      </div>
+
+      <div id="profile-app" hidden>
+        <div class="profile-section">
+          <h2 class="section-title">基本信息</h2>
+          <div class="info-grid">
+            <span class="info-label">学号</span>
+            <span class="info-value" id="view-student-id">—</span>
+            <span class="info-label">审核状态</span>
+            <span class="info-value" id="view-status">未审核</span>
+          </div>
+        </div>
+
+        <div class="profile-section">
+          <h2 class="section-title">编辑资料</h2>
+          <form id="profile-form" class="form-grid">
+            <div class="form-field">
+              <label for="profile-name">姓名</label>
+              <input id="profile-name" name="name" required>
+            </div>
+            <div class="form-field">
+              <label for="profile-nickname">昵称</label>
+              <input id="profile-nickname" name="nickname" maxlength="20" required>
+            </div>
+            <div class="form-field">
+              <label for="profile-phone">手机号</label>
+              <input id="profile-phone" name="phone" inputmode="tel" autocomplete="tel">
+            </div>
+            <div class="form-field">
+              <label for="profile-wechat">微信号</label>
+              <input id="profile-wechat" name="wechat">
+            </div>
+            <div class="form-field">
+              <label for="profile-email">邮箱</label>
+              <input id="profile-email" name="email" type="email" autocomplete="email">
+            </div>
+
+            <div>
+              <h2 class="section-title">隐私设置</h2>
+              <p style="color: var(--muted); font-size: 14px; margin: 0 0 16px;">关闭时，对应联系方式不会在公开资料和行程中展示</p>
+              <div class="switch-list">
+                <label class="switch-row"><span>公开手机号</span><input id="privacy-phone" type="checkbox"></label>
+                <label class="switch-row"><span>公开微信号</span><input id="privacy-wechat" type="checkbox"></label>
+                <label class="switch-row"><span>公开邮箱</span><input id="privacy-email" type="checkbox"></label>
+              </div>
+            </div>
+
+            <p id="profile-saved" class="success-message" hidden></p>
+            <div class="actions">
+              <button class="btn" type="submit">保存资料</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="profile-section">
+          <h2 class="section-title">公开信息</h2>
+          <div class="info-grid">
+            <span class="info-label">昵称</span>
+            <span class="info-value" id="public-nickname">—</span>
+            <span class="info-label">手机号</span>
+            <span class="info-value" id="public-phone">未公开</span>
+            <span class="info-label">微信号</span>
+            <span class="info-value" id="public-wechat">未公开</span>
+            <span class="info-label">邮箱</span>
+            <span class="info-value" id="public-email">未公开</span>
+          </div>
+          <p style="color: var(--muted); font-size: 13px; margin: 0;">他人在行程中只能看到这里标记为公开的联系方式</p>
+        </div>
+
+        <div class="profile-section">
+          <h2 class="section-title">历史行程</h2>
+          <div id="history-list" class="history-list"></div>
+          <p id="history-empty" class="empty-state" hidden>暂无历史行程</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="../../scripts/crm.js"></script>
+  <script>
+    var guestCard = document.getElementById("guest-card");
+    var profileApp = document.getElementById("profile-app");
+
+    function contactText(enabled, value) {
+      if (!enabled) return "未公开";
+      return value ? value : "已公开，尚未填写";
+    }
+
+    function renderPublic(user) {
+      document.getElementById("public-nickname").textContent = user.nickname || "—";
+      document.getElementById("public-phone").textContent = contactText(user.privacy.phone, user.phone);
+      document.getElementById("public-wechat").textContent = contactText(user.privacy.wechat, user.wechat);
+      document.getElementById("public-email").textContent = contactText(user.privacy.email, user.email);
+    }
+
+    function rideTitle(ride) {
+      return ride.origin + " → " + ride.destination + "，" + ride.date + " " + ride.time;
+    }
+
+    function renderHistory() {
+      var list = document.getElementById("history-list");
+      var empty = document.getElementById("history-empty");
+      var published = CRM.getRides().map(function (ride) {
+        return { label: "已发布", ride: ride };
+      });
+      var joined = CRM.getJoined().map(function (ride) {
+        return { label: "已加入", ride: ride };
+      });
+      var items = published.concat(joined);
+      list.replaceChildren();
+      empty.hidden = items.length > 0;
+      items.forEach(function (item) {
+        var article = document.createElement("article");
+        article.className = "history-item";
+        var title = document.createElement("strong");
+        title.className = "history-title";
+        title.textContent = rideTitle(item.ride);
+        var meta = document.createElement("p");
+        meta.className = "history-meta";
+        meta.textContent = item.label + " · 容量 " + item.ride.capacity + " 人（含组织者）· 容差 ±" + item.ride.tolerance + " 分钟";
+        article.append(title, meta);
+        list.append(article);
+      });
+    }
+
+    function fillForm(user) {
+      document.getElementById("view-student-id").textContent = user.studentId;
+      document.getElementById("view-status").textContent = user.status === "verified" ? "已验证" : "未审核";
+      document.getElementById("profile-name").value = user.name || "";
+      document.getElementById("profile-nickname").value = user.nickname || "";
+      document.getElementById("profile-phone").value = user.phone || "";
+      document.getElementById("profile-wechat").value = user.wechat || "";
+      document.getElementById("profile-email").value = user.email || "";
+      document.getElementById("privacy-phone").checked = !!user.privacy.phone;
+      document.getElementById("privacy-wechat").checked = !!user.privacy.wechat;
+      document.getElementById("privacy-email").checked = !!user.privacy.email;
+      renderPublic(user);
+    }
+
+    function readForm(user) {
+      return {
+        studentId: user.studentId,
+        name: document.getElementById("profile-name").value.trim(),
+        nickname: document.getElementById("profile-nickname").value.trim(),
+        status: user.status,
+        phone: document.getElementById("profile-phone").value.trim(),
+        wechat: document.getElementById("profile-wechat").value.trim(),
+        email: document.getElementById("profile-email").value.trim(),
+        privacy: {
+          phone: document.getElementById("privacy-phone").checked,
+          wechat: document.getElementById("privacy-wechat").checked,
+          email: document.getElementById("privacy-email").checked
+        }
+      };
+    }
+
+    var current = CRM.getUser();
+    if (!current) {
+      guestCard.hidden = false;
+    } else {
+      profileApp.hidden = false;
+      fillForm(current);
+      ["privacy-phone", "privacy-wechat", "privacy-email", "profile-phone", "profile-wechat", "profile-email", "profile-nickname"].forEach(function (id) {
+        document.getElementById(id).addEventListener("input", function () {
+          renderPublic(readForm(current));
+        });
+        document.getElementById(id).addEventListener("change", function () {
+          renderPublic(readForm(current));
+        });
+      });
+      document.getElementById("profile-form").addEventListener("submit", function (event) {
+        event.preventDefault();
+        var next = readForm(current);
+        if (!next.name || !next.nickname) return;
+        current = next;
+        CRM.saveUser(current);
+        var saved = document.getElementById("profile-saved");
+        saved.hidden = false;
+        saved.textContent = "个人资料已更新";
+        renderPublic(current);
+        setTimeout(function() { saved.hidden = true;; }, 3000);;
+      });
+    }
+    renderHistory();
+  </script>
+</body>
+</html>

@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>通知中心 · MUST 校园同路</title>
+  <link rel="stylesheet" href="../../styles/app.css">
+  <style>
+    .notifications-container {
+      max-width: 800px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 0 32px;
+    }
+
+    .notifications-header {
+      text-align: center;
+      margin-bottom: 48px;
+      animation: fadeInUp 0.8s ease-out;
+    }
+
+    .notifications-header h1 {
+      font-size: 32px;
+      font-weight: 400;
+      margin: 0 0 12px;
+      color: var(--ink);
+    }
+
+    .notifications-header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    .filters {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 40px;
+      animation: fadeInUp 0.8s ease-out 0.1s backwards;
+    }
+
+    .filter-btn {
+      min-height: 40px;
+      padding: 0 20px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .filter-btn:hover {
+      border-color: #c8c5bd;
+      color: var(--ink);
+    }
+
+    .filter-btn[aria-pressed="true"] {
+      background: var(--ink);
+      color: var(--surface);
+      border-color: var(--ink);
+    }
+
+    .notice-list {
+      display: grid;
+      gap: 20px;
+      animation: fadeInUp 0.8s ease-out 0.2s backwards;
+    }
+
+    .notice {
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: transparent;
+      transition: all 0.2s ease;
+    }
+
+    .notice:hover {
+      border-color: #c8c5bd;
+    }
+
+    .notice-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .notice-tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 14px;
+      border-radius: 14px;
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 400;
+    }
+
+    .notice-time {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .notice h2 {
+      margin: 0 0 8px;
+      font-size: 17px;
+      font-weight: 500;
+      color: var(--ink);
+    }
+
+    .notice p {
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .notice-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .notice-actions .btn {
+      min-height: 40px;
+      padding: 0 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.2s ease;
+    }
+
+    .notice-actions .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    }
+
+    .result-message {
+      margin: 16px 0 0;
+      padding: 14px;
+      background: transparent;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font-size: 14px;
+      color: var(--ink);
+      animation: fadeIn 0.4s ease-out;
+    }
+
+    .result-message.success {
+      border-color: #b7e0c8;
+      color: var(--ok);
+    }
+
+    .result-message.error {
+      border-color: #f3c3c8;
+      color: var(--danger);
+    }
+
+    .result-message.warning {
+      border-color: #efd7ae;
+      color: var(--warn);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 64px 0;
+      color: var(--muted);
+      font-size: 15px;
+      animation: fadeIn 0.6s ease-out;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @media (max-width: 600px) {
+      .notifications-container {
+        padding: 0 24px;
+      }
+      .notice-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+    }
+  </style>
+</head>
+<body data-page="notifications">
+  <header class="navbar" data-component="navbar">
+    <a class="brand" href="Register.html">MUST 校园同路</a>
+    <ul class="nav-links">
+      <li><a class="nav-link" data-nav="profile" href="../profile/Profile.html">个人资料</a></li>
+      <li><a class="nav-link" data-nav="publish" href="../ride/PublishRide.html">发布行程</a></li>
+      <li><a class="nav-link" data-nav="notifications" href="../interaction/Notifications.html">通知中心</a></li>
+    </ul>
+    <span id="verify-badge" class="badge">未登录</span>
+  </header>
+
+  <main class="page" style="justify-content: flex-start; padding-top: 100px; padding-bottom: 80px;">
+    <div class="notifications-container">
+      <div class="notifications-header">
+        <h1>通知中心</h1>
+        <p>处理拼车邀请，查看加入结果和行程状态变化</p>
+      </div>
+
+      <div class="filters" role="group" aria-label="通知筛选">
+        <button class="filter-btn" type="button" data-filter="all" aria-pressed="true">全部</button>
+        <button class="filter-btn" type="button" data-filter="invite" aria-pressed="false">拼车邀请</button>
+        <button class="filter-btn" type="button" data-filter="status" aria-pressed="false">状态变更</button>
+      </div>
+
+      <div id="notice-list" class="notice-list">
+        <article class="notice" data-kind="invite" data-origin="图书馆" data-destination="东门" data-date="2026-11-05" data-time="08:00" data-tolerance="15" data-capacity="4" data-members="2">
+          <div class="notice-header">
+            <span class="notice-tag">拼车邀请</span>
+            <time class="notice-time">2026-11-05 07:40</time>
+          </div>
+          <h2>邀请你加入：图书馆 → 东门</h2>
+          <p>11-05 08:00，容量 4 人（含组织者），目前 2 人。容差 ±15 分钟。</p>
+          <div class="notice-actions">
+            <button class="btn" type="button" data-action="accept">接受邀请</button>
+            <button class="btn secondary" type="button" data-action="decline">拒绝</button>
+          </div>
+          <p class="result-message" hidden></p>
+        </article>
+
+        <article class="notice" data-kind="invite" data-origin="东门" data-destination="图书馆" data-date="2026-11-05" data-time="08:00" data-tolerance="15" data-capacity="4" data-members="1">
+          <div class="notice-header">
+            <span class="notice-tag">拼车邀请</span>
+            <time class="notice-time">2026-11-05 07:42</time>
+          </div>
+          <h2>邀请你加入：东门 → 图书馆</h2>
+          <p>11-05 08:00。若你的行程是图书馆 → 东门，这条为相反方向。</p>
+          <div class="notice-actions">
+            <button class="btn" type="button" data-action="accept">接受邀请</button>
+            <button class="btn secondary" type="button" data-action="decline">拒绝</button>
+          </div>
+          <p class="result-message" hidden></p>
+        </article>
+
+        <article class="notice" data-kind="invite" data-origin="图书馆" data-destination="东门" data-date="2026-11-05" data-time="08:10" data-tolerance="15" data-capacity="4" data-members="1">
+          <div class="notice-header">
+            <span class="notice-tag">拼车邀请</span>
+            <time class="notice-time">2026-11-05 07:45</time>
+          </div>
+          <h2>邀请你加入：图书馆 → 东门</h2>
+          <p>11-05 08:10。若你已加入 08:00 的行程，出发时间段重叠。</p>
+          <div class="notice-actions">
+            <button class="btn" type="button" data-action="accept">接受邀请</button>
+            <button class="btn secondary" type="button" data-action="decline">拒绝</button>
+          </div>
+          <p class="result-message" hidden></p>
+        </article>
+
+        <article class="notice" data-kind="status">
+          <div class="notice-header">
+            <span class="notice-tag">状态变更</span>
+            <time class="notice-time">2026-11-05 07:30</time>
+          </div>
+          <h2>加入未通过</h2>
+          <p>当前账号尚未通过学生身份验证。</p>
+          <p class="result-message warning"><strong>未验证：</strong>未登录或尚未通过学生身份验证，不能发布或加入行程。</p>
+        </article>
+
+        <article class="notice" data-kind="status">
+          <div class="notice-header">
+            <span class="notice-tag">状态变更</span>
+            <time class="notice-time">2026-11-05 08:14</time>
+          </div>
+          <h2>加入结果</h2>
+          <p>图书馆 → 东门，11-05 08:14。与 08:00 相差 14 分钟，位于容差窗口内。</p>
+          <p class="result-message success"><strong>成功：</strong>已加入该行程。</p>
+        </article>
+
+        <article class="notice" data-kind="status">
+          <div class="notice-header">
+            <span class="notice-tag">状态变更</span>
+            <time class="notice-time">2026-11-05 08:00</time>
+          </div>
+          <h2>匹配未通过</h2>
+          <p>东门 → 图书馆，11-05 08:00，与图书馆 → 东门方向相反。图书馆 → 东门，11-06 08:00，日期不同。</p>
+          <p class="result-message error"><strong>方向或日期不符：</strong>相反方向或不同日期不能成为候选。</p>
+        </article>
+
+        <article class="notice" data-kind="status">
+          <div class="notice-header">
+            <span class="notice-tag">状态变更</span>
+            <time class="notice-time">2026-11-05 08:16</time>
+          </div>
+          <h2>匹配未通过</h2>
+          <p>图书馆 → 东门，11-05 08:16。与 08:00 相差 16 分钟。</p>
+          <p class="result-message error"><strong>超出 ±15 分钟：</strong>时间差大于 15 分钟，不能匹配。</p>
+        </article>
+
+        <article class="notice" data-kind="status">
+          <div class="notice-header">
+            <span class="notice-tag">状态变更</span>
+            <time class="notice-time">2026-11-05 08:05</time>
+          </div>
+          <h2>加入未通过</h2>
+          <p>该行程容量 4 人，组织者与 3 位同行者已满。</p>
+          <p class="result-message error"><strong>人数已满：</strong>含组织者已达到容量上限，不能再加入。</p>
+        </article>
+
+        <article class="notice" data-kind="status">
+          <div class="notice-header">
+            <span class="notice-tag">状态变更</span>
+            <time class="notice-time">2026-11-05 08:10</time>
+          </div>
+          <h2>加入未通过</h2>
+          <p>你已加入 08:00 的行程，不能再加入 08:10 的另一条行程。</p>
+          <p class="result-message error"><strong>时间段冲突：</strong>重叠的出发时间段内不能同时加入多个行程。</p>
+        </article>
+      </div>
+      <p id="filter-empty" class="empty-state" hidden>这一类通知是空的</p>
+    </div>
+  </main>
+
+  <script src="../../scripts/crm.js"></script>
+  <script>
+    function inviteFrom(card) {
+      return {
+        id: "join-" + Date.now(),
+        origin: card.dataset.origin,
+        destination: card.dataset.destination,
+        date: card.dataset.date,
+        time: card.dataset.time,
+        tolerance: Number(card.dataset.tolerance || 15),
+        capacity: Number(card.dataset.capacity),
+        members: Number(card.dataset.members)
+      };
+    }
+
+    function lockActions(card) {
+      card.querySelectorAll("button").forEach(function (button) { button.disabled = true; });
+    }
+
+    function evaluateJoin(invite) {
+      var user = CRM.getUser();
+      if (!CRM.isVerified(user)) {
+        return { code: "unverified" };
+      }
+      if (invite.members >= invite.capacity) {
+        return { code: "full", detail: "容量 " + invite.capacity + " 人已满（含组织者），不能再加入。" };
+      }
+
+      var published = CRM.getRides();
+      var joined = CRM.getJoined();
+      if (published.length) {
+        var aligned = published.filter(function (ride) { return CRM.sameDirection(ride, invite); });
+        if (!aligned.length) {
+          return { code: "direction" };
+        }
+        var nearest = aligned.reduce(function (min, ride) {
+          var diff = Math.abs(CRM.toMinutes(ride.time) - CRM.toMinutes(invite.time));
+          return Math.min(min, diff);
+        }, Infinity);
+        if (nearest > 15) {
+          return { code: "tolerance", detail: "与你的行程相差 " + nearest + " 分钟，大于 15 分钟，不能匹配。" };
+        }
+      }
+
+      var occupied = published.concat(joined).some(function (ride) {
+        var diff = Math.abs(CRM.toMinutes(ride.time) - CRM.toMinutes(invite.time));
+        if (CRM.sameDirection(ride, invite) && diff <= 15) return false;
+        return CRM.windowsOverlap(ride, invite);
+      });
+      if (occupied) {
+        return { code: "conflict" };
+      }
+      return { code: "success", detail: "已接受邀请，加入 " + invite.origin + " → " + invite.destination + " " + invite.time + "。" };
+    }
+
+    function showResult(node, code, detail) {
+      node.hidden = false;
+      var className = "result-message";
+      if (code === "success") className += " success";
+      else if (code === "unverified" || code === "full" || code === "direction" || code === "tolerance" || code === "conflict") className += " error";
+      node.className = className;
+
+      var kicker = "";
+      if (code === "success") kicker = "成功：";
+      else if (code === "unverified") kicker = "未验证：";
+      else if (code === "direction") kicker = "方向或日期不符：";
+      else if (code === "tolerance") kicker = "超出 ±15 分钟：";
+      else if (code === "full") kicker = "人数已满：";
+      else if (code === "conflict") kicker = "时间段冲突：";
+
+      node.innerHTML = "<strong>" + kicker + "</strong>" + (detail || "");
+    }
+
+    document.getElementById("notice-list").addEventListener("click", function (event) {
+      var button = event.target.closest("button");
+      if (!button) return;
+      var card = button.closest(".notice");
+      var result = card.querySelector(".result-message");
+      if (button.dataset.action === "decline") {
+        result.hidden = false;
+        result.className = "result-message";
+        result.textContent = "已拒绝该邀请，不会加入此行程。";
+        lockActions(card);
+        return;
+      }
+      if (button.dataset.action !== "accept") return;
+      var invite = inviteFrom(card);
+      var outcome = evaluateJoin(invite);
+      showResult(result, outcome.code, outcome.detail);
+      if (outcome.code === "success") {
+
+</parameter>
+</function>
