@@ -2,6 +2,8 @@
 
 A C11 HTTP server for the campus carpool project. It stores accounts, rides, memberships, invitations, reports and notifications in SQLite. The frontend communicates with it through JSON requests.
 
+Current update: [Week 4 joining and ride states](docs/Week4.md). This update builds on the existing backend and includes fixes and additional tests.
+
 ## Run locally
 
 Use Ubuntu or Ubuntu in WSL. Open a terminal in the extracted project folder.
