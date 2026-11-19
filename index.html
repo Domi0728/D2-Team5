@@ -1,16 +1,791 @@
 <!doctype html>
-<html lang="<!-- figma:lang -->">
+<html lang="zh-CN">
   <head>
-    <!-- figma:head-start -->
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title><!-- figma:title --></title>
-    <!-- figma:head-end -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#397f94" />
+    <title>主页信息</title>
+
+    <!-- Tailwind CSS v3 CDN：本文件可直接在浏览器中运行 -->
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              page: '#397f94',
+              primary: '#edae10',
+              success: '#43a048',
+            },
+          },
+        },
+      }
+    </script>
+
+    <style>
+      /* ---------- Fonts from the Figma design ---------- */
+      @font-face {
+        font-family: 'Hind:Bold';
+        src: url('https://static.figma.com/font/Hind-Bold_1') format('woff2');
+        font-style: normal;
+        font-weight: 700;
+      }
+      @font-face {
+        font-family: 'Noto Sans JP:Medium';
+        src: url('https://static.figma.com/font/NotoSansJP-VF_2') format('woff2');
+        font-style: normal;
+        font-weight: 500;
+      }
+      @font-face {
+        font-family: 'Noto Sans JP:Regular';
+        src: url('https://static.figma.com/font/NotoSansJP-VF_2') format('woff2');
+        font-style: normal;
+        font-weight: 400;
+      }
+      @font-face {
+        font-family: 'Noto Sans SC:Medium';
+        src: url('https://static.figma.com/font/NotoSansSC-VF_2') format('woff2');
+        font-style: normal;
+        font-weight: 500;
+      }
+      @font-face {
+        font-family: 'Poppins:Medium';
+        src: url('https://static.figma.com/font/Poppins-Medium_6') format('woff2');
+        font-style: normal;
+        font-weight: 500;
+      }
+      @font-face {
+        font-family: 'Poppins:Regular';
+        src: url('https://static.figma.com/font/Poppins-Regular_6') format('woff2');
+        font-style: normal;
+        font-weight: 400;
+      }
+      @font-face {
+        font-family: 'Roboto:Regular';
+        src: url('https://static.figma.com/font/Roboto_wdth_wght__3') format('woff2');
+        font-style: normal;
+        font-weight: 400;
+      }
+
+      :root {
+        color-scheme: light;
+        font-family: 'Poppins:Regular', 'Noto Sans SC:Medium', sans-serif;
+        background: #edf1f3;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        overflow-x: hidden;
+        background: #edf1f3;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      /* ---------- Mobile canvas ---------- */
+      .phone-shell {
+        width: 100%;
+        max-width: 440px;
+        min-height: max(100dvh, 956px);
+        margin-inline: auto;
+        position: relative;
+        overflow: hidden;
+        background: #397f94;
+      }
+
+      @media (min-width: 480px) {
+        .phone-shell {
+          box-shadow: 0 22px 65px rgba(26, 62, 73, 0.2);
+        }
+      }
+
+      /* ---------- Soft sequential entrance ---------- */
+      @keyframes soft-enter {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .reveal {
+        opacity: 0;
+        animation: soft-enter 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        animation-delay: var(--delay, 0ms);
+      }
+
+      /* ---------- Fields ---------- */
+      .field {
+        height: 60px;
+        border: 1px solid #b8b8b8;
+        border-radius: 9px;
+        background: #fff;
+        transition:
+          border-color 0.55s ease,
+          box-shadow 0.55s ease,
+          transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+          background-color 0.55s ease;
+      }
+
+      .field:focus-within,
+      .field.is-open,
+      .field:active {
+        border-color: rgba(237, 174, 16, 0.88);
+        box-shadow:
+          0 0 0 3px rgba(237, 174, 16, 0.14),
+          0 10px 28px rgba(25, 72, 86, 0.12);
+        transform: translateY(-1px);
+      }
+
+      .field.is-valid {
+        border-color: rgba(67, 160, 72, 0.75);
+        box-shadow: 0 0 0 3px rgba(67, 160, 72, 0.11);
+      }
+
+      .field.is-invalid {
+        border-color: rgba(207, 83, 72, 0.72);
+        box-shadow: 0 0 0 3px rgba(207, 83, 72, 0.1);
+      }
+
+      .password-input::placeholder {
+        color: #736e6e;
+        opacity: 1;
+      }
+
+      .eye-button img {
+        transition:
+          opacity 0.45s ease,
+          transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      .eye-button:hover img,
+      .eye-button:active img {
+        opacity: 0.62;
+        transform: scale(1.08);
+      }
+
+      /* ---------- Menus ---------- */
+      .menu {
+        visibility: hidden;
+        opacity: 0;
+        transform: translateY(-8px) scale(0.985);
+        transition:
+          opacity 0.45s ease,
+          transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+          visibility 0.45s;
+      }
+
+      .menu.is-visible {
+        visibility: visible;
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+
+      .chevron {
+        transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      .is-open .chevron {
+        transform: rotate(0deg);
+      }
+
+      /* ---------- Agreement and CTA ---------- */
+      .agreement-box {
+        transition:
+          transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+          box-shadow 0.5s ease,
+          background-color 0.5s ease;
+      }
+
+      .agreement-button:hover .agreement-box,
+      .agreement-button:active .agreement-box {
+        transform: scale(1.07);
+        box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.09);
+      }
+
+      .agreement-check {
+        opacity: 0;
+        transform: scale(0.55);
+        transition:
+          opacity 0.4s ease,
+          transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .agreement-button[aria-checked='true'] .agreement-check {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      .country-flag {
+        display: inline-flex;
+        width: 25px;
+        min-width: 25px;
+        height: 20px;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+        font-size: 20px;
+        line-height: 1;
+      }
+
+      .complete-button {
+        transition:
+          opacity 0.55s ease,
+          transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+          box-shadow 0.55s ease,
+          filter 0.55s ease;
+      }
+
+      .complete-button:disabled {
+        cursor: not-allowed;
+        opacity: 0.46;
+        filter: saturate(0.48);
+      }
+
+      .complete-button:not(:disabled):hover,
+      .complete-button:not(:disabled):active {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 28px rgba(67, 48, 1, 0.19);
+        filter: brightness(1.035);
+      }
+
+      .complete-button:not(:disabled):active {
+        transform: translateY(0) scale(0.992);
+      }
+
+      .nav-button {
+        transition:
+          transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+          background-color 0.5s ease,
+          box-shadow 0.5s ease;
+      }
+
+      .nav-button:hover,
+      .nav-button:active {
+        transform: translateY(-2px);
+        box-shadow: 0 9px 22px rgba(20, 63, 76, 0.18);
+      }
+
+      /* ---------- Completion toast ---------- */
+      .toast {
+        opacity: 0;
+        pointer-events: none;
+        transform: translate(-50%, 14px);
+        transition:
+          opacity 0.55s ease,
+          transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      .toast.is-visible {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+
+      /* Keep longer agreement copy clear of the CTA on narrower phones. */
+      @media (max-width: 399px) {
+        .complete-button {
+          top: 647px !important;
+        }
+
+        .bottom-nav {
+          top: 727px !important;
+        }
+      }
+
+      @media (max-width: 349px) {
+        .complete-button {
+          top: 665px !important;
+        }
+
+        .bottom-nav {
+          top: 745px !important;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-delay: 0ms !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
   </head>
+
   <body>
-    <!-- figma:body-start -->
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-    <!-- figma:body-end -->
+    <!-- 440 × 956 iPhone 17 Pro Max mobile canvas -->
+    <main class="phone-shell" aria-label="设置主页信息">
+      <!-- Back -->
+      <button
+        id="topBack"
+        type="button"
+        aria-label="返回"
+        class="reveal nav-button absolute left-[39px] top-[76px] z-10 flex h-6 w-6 items-center justify-center"
+        style="--delay: 80ms"
+      >
+        <img src="./assets/614ba.svg" alt="" class="h-[21px] w-[21px] rotate-180" />
+      </button>
+
+      <!-- Heading -->
+      <header
+        class="reveal absolute left-1/2 top-[110px] -ml-[140px] w-[280px] text-center"
+        style="--delay: 160ms"
+      >
+        <h1
+          class="text-[24px] font-medium leading-[30px] text-white"
+          style="font-family: 'Poppins:Medium', 'Noto Sans SC:Medium', sans-serif"
+        >
+          主页信息
+        </h1>
+        <p
+          class="mt-3 text-[16px] font-normal leading-6 text-[#a0a0a0]"
+          style="font-family: 'Poppins:Regular', sans-serif"
+        >
+          Set your password
+        </p>
+      </header>
+
+      <!-- Form -->
+      <form id="profileForm" class="absolute inset-0" novalidate>
+        <!-- Country / phone -->
+        <div
+          id="countryField"
+          class="field reveal absolute left-[39px] top-[215px] z-30 w-[calc(100%-78px)]"
+          style="--delay: 260ms"
+        >
+          <button
+            id="countryButton"
+            type="button"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            class="flex h-full w-full items-center text-left"
+          >
+            <span id="selectedFlagEmoji" class="country-flag ml-[12px]" aria-hidden="true">🇧🇩</span>
+            <img
+              src="./assets/fcda8.svg"
+              alt=""
+              class="chevron ml-[13px] h-[9.27px] w-[17.4px] rotate-180"
+            />
+            <span class="ml-[13px] h-11 w-px bg-[#dddddd]"></span>
+            <span
+              id="countryCode"
+              class="ml-[14px] text-[16px] font-medium leading-6 text-[#262626]"
+              style="font-family: 'Poppins:Medium', sans-serif"
+              >+880</span
+            >
+            <span
+              class="ml-2 text-[16px] font-medium leading-[23px] text-black"
+              style="font-family: 'Poppins:Medium', 'Noto Sans SC:Medium', sans-serif"
+              >电话号码</span
+            >
+          </button>
+          <div
+            id="countryMenu"
+            role="listbox"
+            aria-label="选择国家或地区"
+            class="menu absolute left-0 top-[68px] max-h-[320px] w-full overflow-y-auto overscroll-contain rounded-[9px] border border-white/25 bg-white py-1 shadow-xl"
+          >
+            <button
+              type="button"
+              role="option"
+              aria-selected="true"
+              data-code="+880"
+              data-country="孟加拉国"
+              data-flag="🇧🇩"
+              class="flex w-full items-center px-5 py-3 text-left text-[15px] text-[#262626] transition-colors duration-300 hover:bg-[#f4f7f8] active:bg-[#edf2f4]"
+            >
+              <span class="country-flag mr-3" aria-hidden="true">🇧🇩</span>
+              <span class="flex-1">孟加拉国</span><span class="text-[#736e6e]">+880</span>
+            </button>
+            <button
+              type="button"
+              role="option"
+              aria-selected="false"
+              data-code="+86"
+              data-country="中国大陆"
+              data-flag="🇨🇳"
+              class="flex w-full items-center px-5 py-3 text-left text-[15px] text-[#262626] transition-colors duration-300 hover:bg-[#f4f7f8] active:bg-[#edf2f4]"
+            >
+              <span class="country-flag mr-3" aria-hidden="true">🇨🇳</span>
+              <span class="flex-1">中国大陆</span><span class="text-[#736e6e]">+86</span>
+            </button>
+            <button
+              type="button"
+              role="option"
+              aria-selected="false"
+              data-code="+1"
+              data-country="美国"
+              data-flag="🇺🇸"
+              class="flex w-full items-center px-5 py-3 text-left text-[15px] text-[#262626] transition-colors duration-300 hover:bg-[#f4f7f8] active:bg-[#edf2f4]"
+            >
+              <span class="country-flag mr-3" aria-hidden="true">🇺🇸</span>
+              <span class="flex-1">美国</span><span class="text-[#736e6e]">+1</span>
+            </button>
+            <button
+              type="button"
+              role="option"
+              aria-selected="false"
+              data-code="+44"
+              data-country="英国"
+              data-flag="🇬🇧"
+              class="flex w-full items-center px-5 py-3 text-left text-[15px] text-[#262626] transition-colors duration-300 hover:bg-[#f4f7f8] active:bg-[#edf2f4]"
+            >
+              <span class="country-flag mr-3" aria-hidden="true">🇬🇧</span>
+              <span class="flex-1">英国</span><span class="text-[#736e6e]">+44</span>
+            </button>
+            <button
+              type="button"
+              role="option"
+              aria-selected="false"
+              data-code="+33"
+              data-country="法国"
+              data-flag="🇫🇷"
+              class="flex w-full items-center px-5 py-3 text-left text-[15px] text-[#262626] transition-colors duration-300 hover:bg-[#f4f7f8] active:bg-[#edf2f4]"
+            >
+              <span class="country-flag mr-3" aria-hidden="true">🇫🇷</span>
+              <span class="flex-1">法国</span><span class="text-[#736e6e]">+33</span>
+            </button>
+            <button
+              type="button"
+              role="option"
+              aria-selected="false"
+              data-code="+49"
+              data-country="德国"
+              data-flag="🇩🇪"
+              class="flex w-full items-center px-5 py-3 text-left text-[15px] text-[#262626] transition-colors duration-300 hover:bg-[#f4f7f8] active:bg-[#edf2f4]"
+            >
+              <span class="country-flag mr-3" aria-hidden="true">🇩🇪</span>
+              <span class="flex-1">德国</span><span class="text-[#736e6e]">+49</span>
+            </button>
+            <button
+              type="button"
+              role="option"
+              aria-selected="false"
+              data-code="+39"
+              data-country="意大利"
+              data-flag="🇮🇹"
+              class="flex w-full items-center px-5 py-3 text-left text-[15px] text-[#262626] transition-colors duration-300 hover:bg-[#f4f7f8] active:bg-[#edf2f4]"
+            >
+              <span class="country-flag mr-3" aria-hidden="true">🇮🇹</span>
+              <span class="flex-1">意大利</span><span class="text-[#736e6e]">+39</span>
+            </button>
+            <button
+              type="button"
+              role="option"
+              aria-selected="false"
+              data-code="+82"
+              data-country="韩国"
+              data-flag="🇰🇷"
+              class="flex w-full items-center px-5 py-3 text-left text-[15px] text-[#262626] transition-colors duration-300 hover:bg-[#f4f7f8] active:bg-[#edf2f4]"
+            >
+              <span class="country-flag mr-3" aria-hidden="true">🇰🇷</span>
+              <span class="flex-1">韩国</span><span class="text-[#736e6e]">+82</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Gender -->
+        <div
+          id="genderField"
+          class="field reveal absolute left-[39px] top-[306px] z-20 w-[calc(100%-78px)]"
+          style="--delay: 350ms"
+        >
+          <button
+            id="genderButton"
+            type="button"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            class="flex h-full w-full items-center px-[19px] text-left"
+          >
+            <span
+              id="genderLabel"
+              class="text-[16px] font-medium leading-[23px] text-black"
+              style="font-family: 'Poppins:Medium', 'Noto Sans SC:Medium', sans-serif"
+              >性别</span
+            >
+            <img
+              src="./assets/fcda8.svg"
+              alt=""
+              class="chevron ml-auto h-[9.27px] w-[17.4px] rotate-180"
+            />
+          </button>
+          <div
+            id="genderMenu"
+            role="listbox"
+            aria-label="选择性别"
+            class="menu absolute left-0 top-[68px] w-full overflow-hidden rounded-[9px] border border-white/25 bg-white py-1 shadow-xl"
+          >
+            <button
+              type="button"
+              role="option"
+              data-value="男"
+              class="w-full px-5 py-3 text-left text-[15px] text-[#262626] transition-colors duration-300 hover:bg-[#f4f7f8] active:bg-[#edf2f4]"
+            >
+              男
+            </button>
+            <button
+              type="button"
+              role="option"
+              data-value="女"
+              class="w-full px-5 py-3 text-left text-[15px] text-[#262626] transition-colors duration-300 hover:bg-[#f4f7f8] active:bg-[#edf2f4]"
+            >
+              女
+            </button>
+          </div>
+        </div>
+
+        <!-- Password -->
+        <div
+          id="passwordField"
+          class="field reveal absolute left-[39px] top-[397px] z-10 w-[calc(100%-78px)]"
+          style="--delay: 440ms"
+        >
+          <input
+            id="password"
+            type="password"
+            autocomplete="new-password"
+            placeholder="输入你的密码"
+            aria-label="输入你的密码"
+            class="password-input h-full w-full rounded-[9px] bg-transparent px-[19px] pr-[54px] text-[16px] font-medium leading-[23px] text-[#262626] outline-none"
+            style="font-family: 'Poppins:Medium', 'Noto Sans SC:Medium', sans-serif"
+          />
+          <button
+            type="button"
+            data-eye-for="password"
+            aria-label="显示密码"
+            class="eye-button absolute right-[11px] top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center"
+          >
+            <img src="./assets/117a8.svg" alt="" class="h-6 w-6 rotate-180" />
+          </button>
+        </div>
+
+        <!-- Confirm password -->
+        <div
+          id="confirmField"
+          class="field reveal absolute left-[42px] top-[488px] z-10 w-[calc(100%-78px)]"
+          style="--delay: 530ms"
+        >
+          <input
+            id="confirmPassword"
+            type="password"
+            autocomplete="new-password"
+            placeholder="再次确认密码"
+            aria-label="再次确认密码"
+            class="password-input h-full w-full rounded-[9px] bg-transparent px-[19px] pr-[54px] text-[16px] font-medium leading-[23px] text-[#262626] outline-none"
+            style="font-family: 'Poppins:Medium', 'Noto Sans SC:Medium', sans-serif"
+          />
+          <button
+            type="button"
+            data-eye-for="confirmPassword"
+            aria-label="显示密码"
+            class="eye-button absolute right-[11px] top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center"
+          >
+            <img src="./assets/117a8.svg" alt="" class="h-6 w-6 rotate-180" />
+          </button>
+        </div>
+
+        <!-- Agreement: intentionally unchecked by default -->
+        <button
+          id="agreement"
+          type="button"
+          role="checkbox"
+          aria-checked="false"
+          class="agreement-button reveal absolute left-[39px] top-[579px] flex w-[calc(100%-75px)] items-start text-left"
+          style="--delay: 620ms"
+        >
+          <span
+            class="agreement-box relative mt-0 h-6 w-6 shrink-0 rounded-full bg-white"
+            aria-hidden="true"
+          >
+            <img src="./assets/c14da.svg" alt="" class="absolute left-[2.6px] top-[2.6px] h-[18.8px] w-[18.8px]" />
+            <img
+              src="./assets/446e0.svg"
+              alt=""
+              class="agreement-check absolute left-[6.6px] top-[8.2px] h-[7.56px] w-[10.85px]"
+            />
+          </span>
+          <span
+            class="ml-[10px] min-w-0 flex-1 text-[12px] font-medium leading-[18px] text-[#b8b8b8]"
+            style="font-family: 'Poppins:Medium', sans-serif"
+          >
+            By signing up. you agree to the
+            <span class="text-[#fec400]">Terms of service</span> and<br />
+            <span class="text-[#fec400]">Privacy policy.</span>
+          </span>
+        </button>
+
+        <!-- Complete -->
+        <button
+          id="completeButton"
+          type="submit"
+          disabled
+          class="complete-button reveal absolute left-[44px] top-[629px] flex h-[54px] w-[calc(100%-78px)] items-center justify-center rounded-[8px] bg-[#edae10] text-center text-[16px] font-medium leading-[23px] text-white"
+          style="--delay: 710ms; font-family: 'Poppins:Medium', 'Noto Sans SC:Medium', sans-serif"
+        >
+          完成
+        </button>
+      </form>
+
+      <!-- Bottom navigation -->
+      <button
+        id="bottomBack"
+        type="button"
+        aria-label="上一步"
+        class="bottom-nav reveal nav-button absolute left-[61px] top-[709px] flex h-[50px] w-[49px] items-center justify-center rounded-full bg-[#eeecec]"
+        style="--delay: 800ms"
+      >
+        <img src="./assets/aaaed.svg" alt="" class="h-4 w-4 rotate-180" />
+      </button>
+
+      <button
+        id="nextButton"
+        type="button"
+        class="bottom-nav reveal nav-button absolute right-[54px] top-[709px] flex h-[50px] w-[96px] items-center justify-center rounded-full bg-[rgba(226,224,224,0.2)] text-white"
+        style="--delay: 880ms"
+      >
+        <span
+          class="text-[16px] font-normal leading-normal"
+          style="font-family: 'Roboto:Regular', 'Noto Sans SC:Medium', sans-serif; font-variation-settings: 'wdth' 100"
+          >下一步</span
+        >
+        <img src="./assets/c3cd7.svg" alt="" class="ml-[9px] h-4 w-4" />
+      </button>
+
+      <div
+        id="toast"
+        role="status"
+        aria-live="polite"
+        class="toast absolute bottom-12 left-1/2 z-50 rounded-full bg-white/95 px-5 py-3 text-[13px] font-medium text-[#397f94] shadow-xl"
+      >
+        信息已确认
+      </div>
+    </main>
+
+    <script>
+      // ---------- Dropdown interactions ----------
+      const dropdowns = [
+        {
+          field: document.getElementById('countryField'),
+          button: document.getElementById('countryButton'),
+          menu: document.getElementById('countryMenu'),
+        },
+        {
+          field: document.getElementById('genderField'),
+          button: document.getElementById('genderButton'),
+          menu: document.getElementById('genderMenu'),
+        },
+      ]
+
+      function closeMenus(except) {
+        dropdowns.forEach((item) => {
+          if (item !== except) {
+            item.field.classList.remove('is-open')
+            item.menu.classList.remove('is-visible')
+            item.button.setAttribute('aria-expanded', 'false')
+          }
+        })
+      }
+
+      dropdowns.forEach((item) => {
+        item.button.addEventListener('click', () => {
+          const willOpen = !item.menu.classList.contains('is-visible')
+          closeMenus(item)
+          item.field.classList.toggle('is-open', willOpen)
+          item.menu.classList.toggle('is-visible', willOpen)
+          item.button.setAttribute('aria-expanded', String(willOpen))
+        })
+      })
+
+      document.querySelectorAll('#countryMenu [data-code]').forEach((option) => {
+        option.addEventListener('click', () => {
+          document.getElementById('countryCode').textContent = option.dataset.code
+          const selectedFlagEmoji = document.getElementById('selectedFlagEmoji')
+          selectedFlagEmoji.textContent = option.dataset.flag
+
+          document
+            .getElementById('countryButton')
+            .setAttribute('aria-label', `${option.dataset.country} ${option.dataset.code}`)
+          document.querySelectorAll('#countryMenu [role="option"]').forEach((item) => {
+            item.setAttribute('aria-selected', String(item === option))
+          })
+          closeMenus()
+        })
+      })
+
+      document.querySelectorAll('#genderMenu [data-value]').forEach((option) => {
+        option.addEventListener('click', () => {
+          document.getElementById('genderLabel').textContent = option.dataset.value
+          closeMenus()
+        })
+      })
+
+      document.addEventListener('click', (event) => {
+        if (!dropdowns.some((item) => item.field.contains(event.target))) closeMenus()
+      })
+
+      // ---------- Password visibility and gentle validation ----------
+      document.querySelectorAll('[data-eye-for]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const input = document.getElementById(button.dataset.eyeFor)
+          const showing = input.type === 'text'
+          input.type = showing ? 'password' : 'text'
+          button.setAttribute('aria-label', showing ? '显示密码' : '隐藏密码')
+          button.querySelector('img').style.opacity = showing ? '' : '0.58'
+          input.focus()
+        })
+      })
+
+      const password = document.getElementById('password')
+      const confirmPassword = document.getElementById('confirmPassword')
+      const passwordField = document.getElementById('passwordField')
+      const confirmField = document.getElementById('confirmField')
+
+      function validatePasswords() {
+        passwordField.classList.toggle('is-valid', password.value.length >= 6)
+        confirmField.classList.remove('is-valid', 'is-invalid')
+        if (confirmPassword.value) {
+          confirmField.classList.add(
+            password.value === confirmPassword.value ? 'is-valid' : 'is-invalid',
+          )
+        }
+      }
+
+      password.addEventListener('input', validatePasswords)
+      confirmPassword.addEventListener('input', validatePasswords)
+
+      // ---------- Agreement unlocks completion ----------
+      const agreement = document.getElementById('agreement')
+      const completeButton = document.getElementById('completeButton')
+
+      agreement.addEventListener('click', () => {
+        const checked = agreement.getAttribute('aria-checked') !== 'true'
+        agreement.setAttribute('aria-checked', String(checked))
+        completeButton.disabled = !checked
+      })
+
+      // ---------- Completion feedback ----------
+      const toast = document.getElementById('toast')
+      let toastTimer
+
+      document.getElementById('profileForm').addEventListener('submit', (event) => {
+        event.preventDefault()
+        if (completeButton.disabled) return
+
+        toast.classList.add('is-visible')
+        clearTimeout(toastTimer)
+        toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 2200)
+      })
+    </script>
   </body>
 </html>
