@@ -1,0 +1,43 @@
+make: Entering directory '/workspace/scratch/c38c09da7eba/tmp/week5_work/campus_ride_c'
+python3 -m unittest discover -s tests -v
+test_auth_validation_and_permissions (test_api.ApiTests.test_auth_validation_and_permissions) ... ok
+test_completion_history_and_privacy (test_api.ApiTests.test_completion_history_and_privacy) ... ok
+test_concurrent_last_seat (test_api.ApiTests.test_concurrent_last_seat) ... ok
+test_contact_and_moderation (test_api.ApiTests.test_contact_and_moderation) ... ok
+test_creation_idempotency_and_boundaries (test_api.ApiTests.test_creation_idempotency_and_boundaries) ... ok
+test_expiry_and_notifications (test_api.ApiTests.test_expiry_and_notifications) ... ok
+test_join_request_and_duplicate_membership (test_api.ApiTests.test_join_request_and_duplicate_membership) ... ok
+test_location_impact (test_api.ApiTests.test_location_impact) ... ok
+test_matches_direction_and_window (test_api.ApiTests.test_matches_direction_and_window) ... ok
+test_material_edit_and_reconfirmation (test_api.ApiTests.test_material_edit_and_reconfirmation) ... ok
+test_week4_cancel_invalidates_pending_invitation (test_api.ApiTests.test_week4_cancel_invalidates_pending_invitation) ... ok
+test_week4_confirmed_ride_expires_after_grace (test_api.ApiTests.test_week4_confirmed_ride_expires_after_grace) ... ok
+test_week4_duplicate_arrival (test_api.ApiTests.test_week4_duplicate_arrival) ... ok
+test_week4_material_edit_invalidates_invitation (test_api.ApiTests.test_week4_material_edit_invalidates_invitation) ... ok
+test_week4_only_organiser_starts_and_cancels (test_api.ApiTests.test_week4_only_organiser_starts_and_cancels) ... ok
+test_week4_reject_and_withdraw_invitation (test_api.ApiTests.test_week4_reject_and_withdraw_invitation) ... ok
+test_week4_restricted_organiser_cannot_add_member (test_api.ApiTests.test_week4_restricted_organiser_cannot_add_member) ... ok
+test_week5_admin_config_audit_and_permissions (test_api.ApiTests.test_week5_admin_config_audit_and_permissions) ... ok
+test_week5_contact_revocation_and_withdrawal (test_api.ApiTests.test_week5_contact_revocation_and_withdrawal) ... ok
+test_week5_history_visibility_and_route_reuse (test_api.ApiTests.test_week5_history_visibility_and_route_reuse) ... ok
+test_week5_moderation_transaction_rollback (test_api.ApiTests.test_week5_moderation_transaction_rollback) ... ok
+test_week5_notification_read_all_snapshot_and_retry (test_api.ApiTests.test_week5_notification_read_all_snapshot_and_retry) ... ok
+test_week5_pending_rejected_and_expired_session (test_api.ApiTests.test_week5_pending_rejected_and_expired_session) ... ok
+test_week5_report_queries_review_dedup_and_restore_notice (test_api.ApiTests.test_week5_report_queries_review_dedup_and_restore_notice) ... ok
+test_week5_retention_preview_and_pending_report (test_api.ApiTests.test_week5_retention_preview_and_pending_report) ... ok
+test_week5_suspension_blocks_private_access (test_api.ApiTests.test_week5_suspension_blocks_private_access) ... ok
+test_withdraw_and_overlap (test_api.ApiTests.test_withdraw_and_overlap) ... ok
+test_z_restart_and_backup (test_api.ApiTests.test_z_restart_and_backup) ... ok
+test_concurrent_upgrade_applies_once (test_migrations.MigrationTests.test_concurrent_upgrade_applies_once) ... ok
+test_failure_rolls_back_indexes_and_version (test_migrations.MigrationTests.test_failure_rolls_back_indexes_and_version) ... ok
+test_fresh_database_and_repeated_start (test_migrations.MigrationTests.test_fresh_database_and_repeated_start) ... ok
+test_future_version_is_rejected_without_changes (test_migrations.MigrationTests.test_future_version_is_rejected_without_changes) ... ok
+test_incomplete_version_history_is_rejected (test_migrations.MigrationTests.test_incomplete_version_history_is_rejected) ... ok
+test_unversioned_nonempty_database_is_rejected (test_migrations.MigrationTests.test_unversioned_nonempty_database_is_rejected) ... ok
+test_upgrade_preserves_records_and_custom_config (test_migrations.MigrationTests.test_upgrade_preserves_records_and_custom_config) ... ok
+
+----------------------------------------------------------------------
+Ran 35 tests in 16.763s
+
+OK
+make: Leaving directory '/workspace/scratch/c38c09da7eba/tmp/week5_work/campus_ride_c'

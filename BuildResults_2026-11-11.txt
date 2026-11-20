@@ -1,0 +1,2 @@
+mkdir -p build
+cc -Iinclude -I../tmp/cdeps/usr/include -O2 -g -std=c11 -Wall -Wextra -Wpedantic -Wformat=2 -pthread src/main.c src/db.c src/util.c src/service.c src/auth.c src/rides.c src/admin.c -L../tmp/cdeps/usr/lib/x86_64-linux-gnu -Wl,-rpath,/workspace/scratch/c38c09da7eba/tmp/cdeps/usr/lib/x86_64-linux-gnu -lmicrohttpd -lsqlite3 -ljson-c -lcrypto -pthread -o build/ride_server

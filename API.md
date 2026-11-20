@@ -114,3 +114,27 @@ Tolerance bounds: 0–120, default no greater than maximum. Other bounds in the 
 3. Log in as student B and send a join request with the current ride version.
 4. Student A accepts the request. The response should show CONFIRMED and two members.
 5. At departure, student A starts the ride. Both students confirm arrival. The ride should then appear in both histories.
+
+## Week 4 behavior
+
+Invitation acceptance rechecks organiser eligibility. Arrival confirmations with a new request key and the current version are harmless when that member has already arrived: the server returns the current ride without another state update or arrival notification. Stale versions still return 409. See Week4.md for the joining sequence and state meanings.
+
+## Week 5 additions
+
+Existing paths and default response shapes remain valid. New filters are optional.
+
+| Method and path | Input / result |
+|---|---|
+| GET `/api/notifications?read=unread` | `read=all` (default), `unread`, or `read`; `unread_count` always counts the entire own inbox, not only this page |
+| POST `/api/notifications/read-all` | `{"through_id":42}`; marks own IDs <= 42 read; returns `ok`, `updated_count` |
+| GET `/api/reports/{id}` | Own report or administrator access; other users receive 404 |
+| GET `/api/reports?status=PENDING&limit=20&offset=0` | Own reports; status omitted = all; PENDING or REVIEWED |
+| GET `/api/admin/reports?status=REVIEWED` | Same filters, administrator only |
+| GET `/api/admin/audit?action=review_report&actor_id=1` | Optional exact action and actor filters, administrator only |
+| GET `/api/admin/maintenance/preview` | `ok`, `cutoff`, `eligible_notifications`, `eligible_reports`, `eligible_rides`; no retention deletion |
+
+Report/audit pagination: limit 1–200 (default 200), offset 0–100000. Inbox pagination: limit 1–100 (default 50), offset 0–100000. Invalid filters return 422. Lists are ordered by descending ID.
+
+POST `/api/admin/maintenance` retains `ok` and `deleted_rides`, and additionally returns the preview fields, `deleted_notifications` and `deleted_reports`. It deletes only terminal old rides with no remaining report. The preview applies the same rule after accounting for eligible reviewed-report deletion. Audit records are not deleted by this action. Use an empty JSON object for maintenance and single-notification read.
+
+Account restore sends a notice to the affected account. Review and restoration use the same existing idempotency rules as other writes. Permission checks remain server-side; hiding a frontend button is not access control.

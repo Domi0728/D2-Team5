@@ -1,0 +1,241 @@
+--- a/src/db.c
++++ b/src/db.c
+@@ -104,6 +104,51 @@
+     return (int64_t)time(NULL);
+ }
+ 
++static void migration_failed(const char *message) {
++    execute("ROLLBACK");
++    fprintf(stderr, "%s\n", message);
++    sqlite3_close(db);
++    exit(1);
++}
++
++static void migrate(void) {
++    execute("BEGIN IMMEDIATE");
++    if (db_failed) migration_failed("Cannot acquire migration lock");
++    int has_versions = (int)scalar("SELECT count(*) FROM sqlite_master "
++        "WHERE type='table' AND name='schema_migrations'");
++    int64_t version = 0;
++    if (has_versions) {
++        version = scalar("SELECT coalesce(max(version),0) FROM schema_migrations");
++        int64_t count = scalar("SELECT count(*) FROM schema_migrations");
++        int64_t invalid = scalar("SELECT count(*) FROM schema_migrations WHERE version<1 OR version>2");
++        if (db_failed || invalid || count != version || version < 1)
++            migration_failed("Unsupported or incomplete database version; use the matching backend release");
++    } else if (scalar("SELECT count(*) FROM sqlite_master WHERE name NOT LIKE 'sqlite_%%'")) {
++        migration_failed("Unversioned non-empty database; automatic migration refused");
++    }
++    if (db_failed) migration_failed("Cannot read database version");
++    if (version == 0) {
++        for (size_t i=0;i<sizeof SCHEMA/sizeof SCHEMA[0];i++) {
++            execute("%s", SCHEMA[i]);
++            if (db_failed) migration_failed("Database migration 1 failed; changes rolled back");
++        }
++    }
++    if (version < 2) {
++        execute("CREATE INDEX session_expiry ON sessions(expires_at)");
++        execute("CREATE INDEX invitation_expiry ON invitations(deadline) WHERE status='PENDING'");
++        execute("CREATE INDEX ride_closed_at ON rides(closed_at) WHERE closed_at IS NOT NULL");
++        if (db_failed) migration_failed("Database migration 2 failed; changes rolled back");
++        execute("INSERT INTO schema_migrations(version) VALUES(2)");
++    }
++    execute("INSERT OR IGNORE INTO config VALUES"
++        "('default_tolerance_minutes',15),('max_tolerance_minutes',120),"
++        "('invite_minutes',5),('max_capacity',6),('late_cancel_minutes',10),"
++        "('overlap_minutes',60),('start_grace_minutes',30),('retention_days',90)");
++    if (db_failed) migration_failed("Database migration failed; changes rolled back");
++    execute("COMMIT");
++    if (db_failed) migration_failed("Database migration commit failed");
++}
++
+ void db_init(const char *path) {
+     if (sqlite3_open(path, &db) != SQLITE_OK) {
+         fprintf(stderr, "Cannot open database\n");
+@@ -111,11 +156,8 @@
+     }
+     sqlite3_busy_timeout(db, 15000);
+     execute("PRAGMA foreign_keys=ON");
++    if (db_failed) migration_failed("Cannot enable database constraints");
++    migrate();
+     execute("PRAGMA journal_mode=WAL");
+-    for (size_t i=0;i<sizeof SCHEMA/sizeof SCHEMA[0];i++) execute("%s", SCHEMA[i]);
+-    execute("INSERT OR IGNORE INTO config VALUES"
+-        "('default_tolerance_minutes',15),('max_tolerance_minutes',120),"
+-        "('invite_minutes',5),('max_capacity',6),('late_cancel_minutes',10),"
+-        "('overlap_minutes',60),('start_grace_minutes',30),('retention_days',90)");
+-    if (db_failed) { fprintf(stderr, "Database initialization failed\n"); exit(1); }
++    if (db_failed) { fprintf(stderr, "Database initialization failed\n"); sqlite3_close(db); exit(1); }
+ }
+--- a/src/main.c
++++ b/src/main.c
+@@ -93,6 +93,9 @@
+     umask(0077);
+     const char *path=getenv("RIDE_DB");if(!path)path="data/ride.db";
+     mkdir("data",0700);db_init(path);
++    if(argc==2 && !strcmp(argv[1],"--migrate")) {
++        puts("Database schema version 2 ready");sqlite3_close(db);return 0;
++    }
+     if(argc==3 && !strcmp(argv[1],"--create-admin")) {
+         if(strlen(argv[2])<1 || strlen(argv[2])>80 || scalar("SELECT count(*) FROM users WHERE student_id=%Q",argv[2])) {fprintf(stderr,"Invalid or existing account name\n");return 1;}
+         const char *password=getenv("RIDE_ADMIN_PASSWORD");if(!password)password=getpass("New administrator password: ");
+@@ -111,7 +114,7 @@
+         sqlite3_close(dest);sqlite3_close(db);if(rc!=SQLITE_DONE)return 1;puts("Backup created");return 0;
+     }
+     if(argc==3 && !strcmp(argv[1],"--test-clock")){test_clock_path=argv[2];fprintf(stderr,"Test clock enabled; do not use for deployment\n");}
+-    else if(argc!=1){fprintf(stderr,"Usage: %s [--create-admin NAME | --seed | --backup FILE | --test-clock FILE]\n",argv[0]);return 1;}
++    else if(argc!=1){fprintf(stderr,"Usage: %s [--migrate | --create-admin NAME | --seed | --backup FILE | --test-clock FILE]\n",argv[0]);return 1;}
+     const char *port_env=getenv("RIDE_PORT"),*bind=getenv("RIDE_BIND");
+     char *port_end=NULL;long port=port_env?strtol(port_env,&port_end,10):8080;
+     if(port<1 || port>65535 || (port_env && *port_end)){fprintf(stderr,"Invalid RIDE_PORT\n");return 1;}
+--- /dev/null
++++ b/tests/test_migrations.py
+@@ -0,0 +1,127 @@
++import concurrent.futures
++import os
++from pathlib import Path
++import sqlite3
++import subprocess
++import tempfile
++import unittest
++
++ROOT = Path(__file__).resolve().parents[1]
++BINARY = Path(os.environ.get('RIDE_TEST_BINARY', ROOT / 'build/ride_server'))
++
++
++class MigrationTests(unittest.TestCase):
++    def setUp(self):
++        self.tmp = tempfile.TemporaryDirectory()
++        self.addCleanup(self.tmp.cleanup)
++        self.path = Path(self.tmp.name) / 'ride.db'
++        self.env = dict(os.environ, RIDE_DB=str(self.path))
++
++    def run_migration(self):
++        return subprocess.run([BINARY, '--migrate'], env=self.env, cwd=ROOT,
++                              capture_output=True, text=True, timeout=25)
++
++    def sql(self, statement):
++        with sqlite3.connect(self.path) as conn:
++            return conn.execute(statement).fetchall()
++
++    def snapshot(self):
++        with sqlite3.connect(self.path) as conn:
++            return list(conn.iterdump())
++
++    def legacy(self):
++        with sqlite3.connect(self.path) as conn:
++            conn.executescript((ROOT / 'schema.sql').read_text())
++            conn.executescript("""
++                INSERT INTO config VALUES('retention_days',42);
++                INSERT INTO users(id,student_id,real_name,nickname,password_hash,created_at)
++                    VALUES(1,'0000000001','Fixture','Fixture','fixture-hash',1800000000);
++                INSERT INTO locations VALUES(1,'Campus',1),(2,'Port',1);
++                INSERT INTO routes VALUES(1,2,1);
++                INSERT INTO rides(id,organiser_id,origin_id,destination_id,origin_name,
++                    destination_name,departure_at,meeting_point,capacity,created_at,updated_at)
++                    VALUES(1,1,1,2,'Campus','Port',1800003600,'Gate',3,1800000000,1800000000);
++                INSERT INTO memberships(ride_id,user_id,member_type,consent_version,joined_at)
++                    VALUES(1,1,'ORGANISER',1,1800000000);
++                INSERT INTO sessions VALUES('fixture-token-hash',1,1800007200);
++                INSERT INTO notifications(user_id,event_key,content,created_at)
++                    VALUES(1,'fixture-event','Fixture notice',1800000000);
++            """)
++
++    def assert_current(self):
++        self.assertEqual(self.sql('SELECT version FROM schema_migrations ORDER BY version'), [(1,), (2,)])
++        self.assertEqual(self.sql('PRAGMA integrity_check'), [('ok',)])
++        self.assertEqual(self.sql('PRAGMA foreign_key_check'), [])
++
++    def test_fresh_database_and_repeated_start(self):
++        result = self.run_migration()
++        self.assertEqual(result.returncode, 0, result.stderr)
++        self.assert_current()
++        self.assertEqual(self.sql('SELECT count(*) FROM config'), [(8,)])
++        before = self.snapshot()
++        result = self.run_migration()
++        self.assertEqual(result.returncode, 0, result.stderr)
++        self.assertEqual(self.snapshot(), before)
++
++    def test_upgrade_preserves_records_and_custom_config(self):
++        self.legacy()
++        tables = ['users', 'locations', 'routes', 'rides', 'memberships', 'sessions', 'notifications']
++        before = {table: self.sql('SELECT * FROM ' + table) for table in tables}
++        result = self.run_migration()
++        self.assertEqual(result.returncode, 0, result.stderr)
++        self.assert_current()
++        for table in tables:
++            self.assertEqual(self.sql('SELECT * FROM ' + table), before[table])
++        self.assertEqual(self.sql("SELECT value FROM config WHERE key='retention_days'"), [(42,)])
++
++    def test_failure_rolls_back_indexes_and_version(self):
++        self.legacy()
++        self.sql('CREATE TABLE invitation_expiry(value TEXT)')
++        before = self.snapshot()
++        result = self.run_migration()
++        self.assertNotEqual(result.returncode, 0)
++        self.assertIn('rolled back', result.stderr)
++        self.assertEqual(self.snapshot(), before)
++        self.assertEqual(self.sql("SELECT name FROM sqlite_master WHERE name='session_expiry'"), [])
++        self.sql('DROP TABLE invitation_expiry')
++        result = self.run_migration()
++        self.assertEqual(result.returncode, 0, result.stderr)
++        self.assert_current()
++
++    def test_future_version_is_rejected_without_changes(self):
++        self.legacy()
++        self.sql('INSERT INTO schema_migrations VALUES(99)')
++        before = self.snapshot()
++        result = self.run_migration()
++        self.assertNotEqual(result.returncode, 0)
++        self.assertIn('Unsupported', result.stderr)
++        self.assertEqual(self.snapshot(), before)
++
++    def test_incomplete_version_history_is_rejected(self):
++        self.legacy()
++        self.sql('UPDATE schema_migrations SET version=2')
++        before = self.snapshot()
++        self.assertNotEqual(self.run_migration().returncode, 0)
++        self.assertEqual(self.snapshot(), before)
++
++    def test_unversioned_nonempty_database_is_rejected(self):
++        self.sql('CREATE TABLE unrelated(value TEXT)')
++        before = self.snapshot()
++        result = self.run_migration()
++        self.assertNotEqual(result.returncode, 0)
++        self.assertIn('Unversioned', result.stderr)
++        self.assertEqual(self.snapshot(), before)
++
++    def test_concurrent_upgrade_applies_once(self):
++        self.legacy()
++        with concurrent.futures.ThreadPoolExecutor(2) as pool:
++            results = list(pool.map(lambda _: self.run_migration(), range(2)))
++        for result in results:
++            self.assertEqual(result.returncode, 0, result.stderr)
++        self.assert_current()
++        self.assertEqual(self.sql("SELECT count(*) FROM sqlite_master WHERE type='index' "
++                                 "AND name IN ('session_expiry','invitation_expiry','ride_closed_at')"), [(3,)])
++
++
++if __name__ == '__main__':
++    unittest.main()
+--- a/README.md
++++ b/README.md
+@@ -2,7 +2,9 @@
+ 
+ A C11 HTTP server for the campus carpool project. It stores accounts, rides, memberships, invitations, reports and notifications in SQLite. The frontend communicates with it through JSON requests.
+ 
+-Current update: [Week 4 joining and ride states](docs/Week4.md). This update builds on the existing backend and includes fixes and additional tests.
++Current update: [Database migrations, 2026-11-11](docs/Migrations.md).
++This continues the [Week 4 joining and ride states](docs/Week4.md) code.
++See [acceptance progress](docs/Progress_2026-11-11.md) for remaining work.
+ 
+ ## Run locally
+ 
+@@ -12,6 +14,7 @@
+ sudo apt update
+ sudo apt install build-essential libmicrohttpd-dev libsqlite3-dev libjson-c-dev libssl-dev curl
+ make
++./build/ride_server --migrate
+ ./build/ride_server --create-admin admin
+ ./build/ride_server --seed
+ ./build/ride_server

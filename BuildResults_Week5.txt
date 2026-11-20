@@ -1,0 +1,16 @@
+Week 5 local build, 2026-11-17
+
+The first plain make attempt could not find json-c headers in the execution
+container. The existing extracted dependencies were then used:
+
+make CPPFLAGS='-Iinclude -I/workspace/scratch/c38c09da7eba/tmp/cdeps/usr/include' \
+ LDFLAGS='-L/workspace/scratch/c38c09da7eba/tmp/cdeps/usr/lib/x86_64-linux-gnu -Wl,-rpath,/workspace/scratch/c38c09da7eba/tmp/cdeps/usr/lib/x86_64-linux-gnu' test
+
+The C11 warning-enabled build completed without warnings. All 35 tests passed.
+On Ubuntu/WSL with the packages listed in README.md, use plain make test.
+
+Sanitizer build used -fsanitize=address,undefined -fno-omit-frame-pointer -no-pie.
+LeakSanitizer could not operate under this container's ptrace environment.
+The ASan/UBSan run therefore uses ASAN_OPTIONS=detect_leaks=0; it does not
+establish leak-freedom. See SanitizerResults_Week5.txt for the run result.
+The environment-specific binaries and extracted libraries are not shipped.
