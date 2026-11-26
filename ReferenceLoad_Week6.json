@@ -1,0 +1,44 @@
+{
+  "accounts": 500,
+  "initial_rides": 2000,
+  "active_candidates": 30,
+  "historical_rides": 1970,
+  "concurrent_users": 20,
+  "matching": {
+    "count": 500,
+    "p95_ms": 60.31,
+    "max_ms": 87.74,
+    "within_3_seconds": 500
+  },
+  "matching_elapsed_seconds": 0.899,
+  "core_actions": {
+    "publish": {
+      "count": 20,
+      "p95_ms": 44.09,
+      "max_ms": 46.07,
+      "within_3_seconds": 20
+    },
+    "edit": {
+      "count": 20,
+      "p95_ms": 37.94,
+      "max_ms": 42.66,
+      "within_3_seconds": 20
+    },
+    "invite": {
+      "count": 20,
+      "p95_ms": 28.16,
+      "max_ms": 41.31,
+      "within_3_seconds": 20
+    },
+    "confirm": {
+      "count": 20,
+      "p95_ms": 29.64,
+      "max_ms": 33.2,
+      "within_3_seconds": 20
+    }
+  },
+  "notification_max_ms": 58.97,
+  "scope": "Single localhost C process, SQLite, simulated clock, no TLS or real frontend. 449 accounts and 1970 history rides inserted as declared synthetic fixtures; other setup and all measured actions use HTTP.",
+  "environment": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "thresholds_passed": true
+}

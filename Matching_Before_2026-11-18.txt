@@ -1,0 +1,17 @@
+test_stage2_match_all_sort_tiebreakers (test_api.ApiTests.test_stage2_match_all_sort_tiebreakers) ... ok
+test_stage2_match_capacity_and_group_state (test_api.ApiTests.test_stage2_match_capacity_and_group_state) ... ok
+test_stage2_match_excludes_ineligible_organisers (test_api.ApiTests.test_stage2_match_excludes_ineligible_organisers) ... FAIL
+test_stage2_match_window_and_macau_date (test_api.ApiTests.test_stage2_match_window_and_macau_date) ... ok
+
+======================================================================
+FAIL: test_stage2_match_excludes_ineligible_organisers (test_api.ApiTests.test_stage2_match_excludes_ineligible_organisers)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/c38c09da7eba/tmp/acceptance_20261118/campus_ride_c/tests/test_api.py", line 638, in test_stage2_match_excludes_ineligible_organisers
+    self.assertNotIn(ride['id'],self.match_ids(st,ride['departure_at']))
+AssertionError: 11 unexpectedly found in [11]
+
+----------------------------------------------------------------------
+Ran 4 tests in 3.676s
+
+FAILED (failures=1)

@@ -1,0 +1,2 @@
+HTTP demo smoke test passed: GET page 200; POST /run 200; 11 real backend steps; untrusted Origin rejected with 403.
+Browser rendering not verified: no functional Chromium binary is installed and browser download returned HTTP 403.

@@ -1,0 +1,461 @@
+{
+  "ok": true,
+  "mode": "Real C HTTP backend; isolated demo database and simulated clock",
+  "steps": [
+    {
+      "title": "注册与管理员审核",
+      "response": {
+        "organiser_id": 2,
+        "passenger_id": 3,
+        "verification": "APPROVED"
+      }
+    },
+    {
+      "title": "发布拼车 · 等待同伴",
+      "response": {
+        "id": 1,
+        "organiser_id": 2,
+        "origin_id": 1,
+        "destination_id": 2,
+        "origin_name": "MUST Campus",
+        "destination_name": "Hengqin Port",
+        "departure_at": 1800003600,
+        "meeting_point": "North gate",
+        "capacity": 2,
+        "tolerance_minutes": 15,
+        "luggage_note": "",
+        "tags": [],
+        "status": "WAITING",
+        "version": 1,
+        "consent_version": 1,
+        "created_at": 1800000000,
+        "updated_at": 1800000000,
+        "closed_at": null,
+        "cancel_reason": "",
+        "organiser_nickname": "Student",
+        "member_count": 1,
+        "available_seats": 1,
+        "members": [
+          {
+            "user_id": 2,
+            "nickname": "Student",
+            "member_type": "ORGANISER",
+            "consent_version": 1,
+            "arrival_flag": 0
+          }
+        ]
+      }
+    },
+    {
+      "title": "按路线与时间匹配",
+      "response": [
+        {
+          "id": 1,
+          "organiser_id": 2,
+          "origin_id": 1,
+          "destination_id": 2,
+          "origin_name": "MUST Campus",
+          "destination_name": "Hengqin Port",
+          "departure_at": 1800003600,
+          "meeting_point": "North gate",
+          "capacity": 2,
+          "tolerance_minutes": 15,
+          "luggage_note": "",
+          "tags": [],
+          "status": "WAITING",
+          "version": 1,
+          "consent_version": 1,
+          "created_at": 1800000000,
+          "updated_at": 1800000000,
+          "closed_at": null,
+          "cancel_reason": "",
+          "organiser_nickname": "Student",
+          "member_count": 1,
+          "available_seats": 1,
+          "time_difference_seconds": 0,
+          "shared_completed_rides": 0
+        }
+      ]
+    },
+    {
+      "title": "发送邀请 · 此时不占座",
+      "response": {
+        "id": 1,
+        "ride_id": 1,
+        "sender_id": 2,
+        "recipient_id": 3,
+        "kind": "INVITE",
+        "status": "PENDING",
+        "ride_version": 1,
+        "created_at": 1800000000,
+        "deadline": 1800000300
+      }
+    },
+    {
+      "title": "接受邀请 · 成团并分配座位",
+      "response": {
+        "id": 1,
+        "organiser_id": 2,
+        "origin_id": 1,
+        "destination_id": 2,
+        "origin_name": "MUST Campus",
+        "destination_name": "Hengqin Port",
+        "departure_at": 1800003600,
+        "meeting_point": "North gate",
+        "capacity": 2,
+        "tolerance_minutes": 15,
+        "luggage_note": "",
+        "tags": [],
+        "status": "CONFIRMED",
+        "version": 2,
+        "consent_version": 1,
+        "created_at": 1800000000,
+        "updated_at": 1800000000,
+        "closed_at": null,
+        "cancel_reason": "",
+        "organiser_nickname": "Student",
+        "member_count": 2,
+        "available_seats": 0,
+        "members": [
+          {
+            "user_id": 2,
+            "nickname": "Student",
+            "member_type": "ORGANISER",
+            "consent_version": 1,
+            "arrival_flag": 0
+          },
+          {
+            "user_id": 3,
+            "nickname": "Student",
+            "member_type": "MEMBER",
+            "consent_version": 1,
+            "arrival_flag": 0
+          }
+        ]
+      }
+    },
+    {
+      "title": "修改集合点 · 等待重新确认",
+      "response": {
+        "id": 1,
+        "organiser_id": 2,
+        "origin_id": 1,
+        "destination_id": 2,
+        "origin_name": "MUST Campus",
+        "destination_name": "Hengqin Port",
+        "departure_at": 1800003600,
+        "meeting_point": "Library entrance",
+        "capacity": 2,
+        "tolerance_minutes": 15,
+        "luggage_note": "",
+        "tags": [],
+        "status": "RECONFIRMATION_REQUIRED",
+        "version": 3,
+        "consent_version": 2,
+        "created_at": 1800000000,
+        "updated_at": 1800000000,
+        "closed_at": null,
+        "cancel_reason": "",
+        "organiser_nickname": "Student",
+        "member_count": 2,
+        "available_seats": 0,
+        "members": [
+          {
+            "user_id": 2,
+            "nickname": "Student",
+            "member_type": "ORGANISER",
+            "consent_version": 2,
+            "arrival_flag": 0
+          },
+          {
+            "user_id": 3,
+            "nickname": "Student",
+            "member_type": "MEMBER",
+            "consent_version": 1,
+            "arrival_flag": 0
+          }
+        ]
+      }
+    },
+    {
+      "title": "乘客确认新计划",
+      "response": {
+        "id": 1,
+        "organiser_id": 2,
+        "origin_id": 1,
+        "destination_id": 2,
+        "origin_name": "MUST Campus",
+        "destination_name": "Hengqin Port",
+        "departure_at": 1800003600,
+        "meeting_point": "Library entrance",
+        "capacity": 2,
+        "tolerance_minutes": 15,
+        "luggage_note": "",
+        "tags": [],
+        "status": "CONFIRMED",
+        "version": 4,
+        "consent_version": 2,
+        "created_at": 1800000000,
+        "updated_at": 1800000000,
+        "closed_at": null,
+        "cancel_reason": "",
+        "organiser_nickname": "Student",
+        "member_count": 2,
+        "available_seats": 0,
+        "members": [
+          {
+            "user_id": 2,
+            "nickname": "Student",
+            "member_type": "ORGANISER",
+            "consent_version": 2,
+            "arrival_flag": 0
+          },
+          {
+            "user_id": 3,
+            "nickname": "Student",
+            "member_type": "MEMBER",
+            "consent_version": 2,
+            "arrival_flag": 0
+          }
+        ]
+      }
+    },
+    {
+      "title": "到达出发时间 · 发起人开始行程",
+      "response": {
+        "id": 1,
+        "organiser_id": 2,
+        "origin_id": 1,
+        "destination_id": 2,
+        "origin_name": "MUST Campus",
+        "destination_name": "Hengqin Port",
+        "departure_at": 1800003600,
+        "meeting_point": "Library entrance",
+        "capacity": 2,
+        "tolerance_minutes": 15,
+        "luggage_note": "",
+        "tags": [],
+        "status": "IN_PROGRESS",
+        "version": 5,
+        "consent_version": 2,
+        "created_at": 1800000000,
+        "updated_at": 1800003600,
+        "closed_at": null,
+        "cancel_reason": "",
+        "organiser_nickname": "Student",
+        "member_count": 2,
+        "available_seats": 0,
+        "members": [
+          {
+            "user_id": 2,
+            "nickname": "Student",
+            "member_type": "ORGANISER",
+            "consent_version": 2,
+            "arrival_flag": 0
+          },
+          {
+            "user_id": 3,
+            "nickname": "Student",
+            "member_type": "MEMBER",
+            "consent_version": 2,
+            "arrival_flag": 0
+          }
+        ]
+      }
+    },
+    {
+      "title": "乘客确认到达 · 等待其他成员",
+      "response": {
+        "id": 1,
+        "organiser_id": 2,
+        "origin_id": 1,
+        "destination_id": 2,
+        "origin_name": "MUST Campus",
+        "destination_name": "Hengqin Port",
+        "departure_at": 1800003600,
+        "meeting_point": "Library entrance",
+        "capacity": 2,
+        "tolerance_minutes": 15,
+        "luggage_note": "",
+        "tags": [],
+        "status": "IN_PROGRESS",
+        "version": 6,
+        "consent_version": 2,
+        "created_at": 1800000000,
+        "updated_at": 1800003600,
+        "closed_at": null,
+        "cancel_reason": "",
+        "organiser_nickname": "Student",
+        "member_count": 2,
+        "available_seats": 0,
+        "members": [
+          {
+            "user_id": 2,
+            "nickname": "Student",
+            "member_type": "ORGANISER",
+            "consent_version": 2,
+            "arrival_flag": 0
+          },
+          {
+            "user_id": 3,
+            "nickname": "Student",
+            "member_type": "MEMBER",
+            "consent_version": 2,
+            "arrival_flag": 1
+          }
+        ]
+      }
+    },
+    {
+      "title": "所有成员到达 · 行程结束",
+      "response": {
+        "id": 1,
+        "organiser_id": 2,
+        "origin_id": 1,
+        "destination_id": 2,
+        "origin_name": "MUST Campus",
+        "destination_name": "Hengqin Port",
+        "departure_at": 1800003600,
+        "meeting_point": "Library entrance",
+        "capacity": 2,
+        "tolerance_minutes": 15,
+        "luggage_note": "",
+        "tags": [],
+        "status": "COMPLETED",
+        "version": 7,
+        "consent_version": 2,
+        "created_at": 1800000000,
+        "updated_at": 1800003600,
+        "closed_at": 1800003600,
+        "cancel_reason": "",
+        "organiser_nickname": "Student",
+        "member_count": 2,
+        "available_seats": 0,
+        "members": [
+          {
+            "user_id": 2,
+            "nickname": "Student",
+            "member_type": "ORGANISER",
+            "consent_version": 2,
+            "arrival_flag": 1
+          },
+          {
+            "user_id": 3,
+            "nickname": "Student",
+            "member_type": "MEMBER",
+            "consent_version": 2,
+            "arrival_flag": 1
+          }
+        ]
+      }
+    },
+    {
+      "title": "历史记录与通知",
+      "response": {
+        "history": [
+          {
+            "id": 1,
+            "organiser_id": 2,
+            "origin_id": 1,
+            "destination_id": 2,
+            "origin_name": "MUST Campus",
+            "destination_name": "Hengqin Port",
+            "departure_at": 1800003600,
+            "meeting_point": "Library entrance",
+            "capacity": 2,
+            "tolerance_minutes": 15,
+            "luggage_note": "",
+            "tags": [],
+            "status": "COMPLETED",
+            "version": 7,
+            "consent_version": 2,
+            "created_at": 1800000000,
+            "updated_at": 1800003600,
+            "closed_at": 1800003600,
+            "cancel_reason": "",
+            "organiser_nickname": "Student",
+            "member_count": 2,
+            "available_seats": 0,
+            "members": [
+              {
+                "user_id": 2,
+                "nickname": "Student",
+                "member_type": "ORGANISER",
+                "consent_version": 2,
+                "arrival_flag": 1
+              },
+              {
+                "user_id": 3,
+                "nickname": "Student",
+                "member_type": "MEMBER",
+                "consent_version": 2,
+                "arrival_flag": 1
+              }
+            ]
+          }
+        ],
+        "notifications": {
+          "unread_count": 8,
+          "items": [
+            {
+              "id": 15,
+              "ride_id": 1,
+              "content": "Arrival confirmation updated",
+              "is_read": 0,
+              "created_at": 1800003600
+            },
+            {
+              "id": 13,
+              "ride_id": 1,
+              "content": "Arrival confirmation updated",
+              "is_read": 0,
+              "created_at": 1800003600
+            },
+            {
+              "id": 11,
+              "ride_id": 1,
+              "content": "Ride started",
+              "is_read": 0,
+              "created_at": 1800003600
+            },
+            {
+              "id": 9,
+              "ride_id": 1,
+              "content": "A member confirmed the revised plan",
+              "is_read": 0,
+              "created_at": 1800000000
+            },
+            {
+              "id": 7,
+              "ride_id": 1,
+              "content": "Ride changed; reconfirm the latest plan",
+              "is_read": 0,
+              "created_at": 1800000000
+            },
+            {
+              "id": 5,
+              "ride_id": 1,
+              "content": "ACCEPTED",
+              "is_read": 0,
+              "created_at": 1800000000
+            },
+            {
+              "id": 3,
+              "ride_id": 1,
+              "content": "New ride invitation",
+              "is_read": 0,
+              "created_at": 1800000000
+            },
+            {
+              "id": 2,
+              "ride_id": null,
+              "content": "APPROVED",
+              "is_read": 0,
+              "created_at": 1800000000
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,314 @@
+--- /dev/null
++++ b/demo/index.html
+@@ -0,0 +1,9 @@
++<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>校园同路线拼车 · 后端演示</title>
++<style>
++*{box-sizing:border-box}body{margin:0;background:#f2f5f8;color:#182d42;font:16px/1.65 system-ui,sans-serif}header{background:#122b40;color:white;padding:38px max(5vw,24px)}header p{color:#bcd1df;margin:8px 0}h1{font-size:34px;margin:4px 0}main{max-width:1100px;margin:28px auto;padding:0 24px}.tag{letter-spacing:3px;font-size:12px;color:#79debb}.bar{display:flex;align-items:center;gap:20px;flex-wrap:wrap}button{background:#087f6e;color:white;border:0;border-radius:8px;padding:14px 26px;cursor:pointer;font:inherit;font-weight:600}button:disabled{opacity:.55;cursor:wait}#status{color:#526678}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:24px 0}.stat,.step{background:white;border:1px solid #dde5eb;border-radius:12px;padding:22px}.stat strong{display:block;font-size:28px;color:#087f6e}.step{margin:14px 0;border-left:5px solid #087f6e}.step h2{font-size:19px;margin:0 0 6px}.badge{background:#e5f6ef;padding:3px 10px;border-radius:20px;color:#17634a;font-size:13px}.meta{color:#526678;font-size:14px}details{margin-top:12px}summary{cursor:pointer;color:#087f6e}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f5f8fa;padding:14px;font-size:12px;max-height:380px;overflow:auto}.note{background:#e7eef5;padding:16px 20px;border-radius:10px;font-size:14px;margin:20px 0}footer{padding:24px;color:#667989;text-align:center}@media(max-width:600px){h1{font-size:25px}.stats{grid-template-columns:1fr}}
++</style><header><div class="tag">CAMPUS RIDE / WEEK 06</div><h1>同路线，一起出发</h1><p>校园拼车后端 · 完整业务流程演示</p></header><main><div class="bar"><button id="run">运行完整拼车流程</button><span id="status">准备就绪 · 点击后调用本地 C 后端</span></div><div class="note">这是后端验收演示界面，不是小组正式前端。每次运行使用独立临时数据库和模拟时间，自动创建演示账号，不操作真实用户数据。后端为 C，演示启动脚本为 Python。</div><div class="stats"><div class="stat">完成的流程步骤<strong id="count">—</strong></div><div class="stat">最终行程状态<strong id="state">待运行</strong></div><div class="stat">同行人数（含发起人）<strong id="members">—</strong></div></div><section id="steps"><p>发布行程 → 匹配同伴 → 接受邀请 → 修改与重新确认 → 出发 → 到达 → 历史记录</p></section></main><footer>C11 · SQLite · JSON HTTP API</footer><script>
++const $=id=>document.getElementById(id);
++const labels={WAITING:'等待同伴',CONFIRMED:'已成团',RECONFIRMATION_REQUIRED:'等待重新确认',IN_PROGRESS:'行程中',COMPLETED:'行程已结束'};
++function render(data){$('steps').replaceChildren();data.steps.forEach((step,i)=>{const el=document.createElement('article');el.className='step';const h=document.createElement('h2');h.textContent=String(i+1).padStart(2,'0')+'  '+step.title;el.append(h);const r=step.response;if(r.status&&labels[r.status]){const b=document.createElement('span');b.className='badge';b.textContent=labels[r.status];el.append(b)}if(r.member_count){const p=document.createElement('div');p.className='meta';p.textContent=`成员 ${r.member_count} 人 · 剩余 ${r.available_seats} 座 · 行程版本 ${r.version}`;el.append(p)}const det=document.createElement('details'),sum=document.createElement('summary'),pre=document.createElement('pre');sum.textContent='查看实际接口结果';pre.textContent=JSON.stringify(r,null,2);det.append(sum,pre);el.append(det);$('steps').append(el)});$('count').textContent=data.steps.length;const end=data.steps.find(x=>x.response.status==='COMPLETED').response;$('state').textContent='已结束';$('members').textContent=end.member_count+' 人';}
++$('run').onclick=async()=>{$('run').disabled=true;$('status').textContent='正在运行实际 HTTP 流程…';try{const response=await fetch('/run',{method:'POST',headers:{'X-Demo-Request':'1'}});const data=await response.json();if(!response.ok||!data.ok)throw Error(data.error||'请求失败');render(data);$('status').textContent='完整流程通过 · 结果来自本次真实运行';}catch(e){$('status').textContent='运行失败：'+e.message+'。请先启动 python3 tools/demo.py --serve';}finally{$('run').disabled=false}};
++</script></html>
+--- a/src/main.c
++++ b/src/main.c
+@@ -123,9 +123,9 @@
+     struct sockaddr_in addr={0};addr.sin_family=AF_INET;addr.sin_port=htons((uint16_t)port);
+     if(inet_pton(AF_INET,bind,&addr.sin_addr)!=1){fprintf(stderr,"Invalid RIDE_BIND IPv4 address\n");return 1;}
+     signal(SIGINT,stop_server);signal(SIGTERM,stop_server);signal(SIGPIPE,SIG_IGN);
+-    struct MHD_Daemon *daemon=MHD_start_daemon(MHD_USE_INTERNAL_POLLING_THREAD,(uint16_t)port,NULL,NULL,access_request,NULL,
++    struct MHD_Daemon *daemon=MHD_start_daemon(MHD_USE_INTERNAL_POLLING_THREAD | MHD_USE_ERROR_LOG,(uint16_t)port,NULL,NULL,access_request,NULL,
+         MHD_OPTION_SOCK_ADDR,(struct sockaddr *)&addr,MHD_OPTION_NOTIFY_COMPLETED,completed,NULL,
+-        MHD_OPTION_CONNECTION_LIMIT,(unsigned int)64,MHD_OPTION_CONNECTION_TIMEOUT,(unsigned int)15,
++        MHD_OPTION_CONNECTION_LIMIT,(unsigned int)256,MHD_OPTION_CONNECTION_TIMEOUT,(unsigned int)15,
+         MHD_OPTION_THREAD_POOL_SIZE,(unsigned int)8,MHD_OPTION_END);
+     if(!daemon){fprintf(stderr,"Cannot start HTTP server\n");sqlite3_close(db);return 1;}
+     printf("Campus Ride C backend: http://%s:%ld\n",bind,port);fflush(stdout);
+--- a/src/rides.c
++++ b/src/rides.c
+@@ -220,7 +220,7 @@
+     if(!active_member(id,uid)){out=error(r,403,"FORBIDDEN","Active ride member required");goto done;}
+     if(!strcmp(action,"/withdraw") || !strcmp(action,"/cancel")) {
+         int cancel=!strcmp(action,"/cancel");
+-        if(!prestart(ride) || n(ride,"departure_at")<=r->now){out=error(r,409,"RIDE_CLOSED","Cancellation and withdrawal require a future pre-start ride");goto done;}
++        if(!prestart(ride)){out=error(r,409,"RIDE_CLOSED","Cancellation and withdrawal require a ride that has not started");goto done;}
+         if((cancel && uid!=n(ride,"organiser_id")) || (!cancel && uid==n(ride,"organiser_id"))) {out=error(r,403,"FORBIDDEN","Organiser cancels the ride; other members withdraw");goto done;}
+         J *reason=NULL;
+         if(json_object_object_get_ex(in,"reason",&reason) && !text_field(in,"reason",0,500)){out=error(r,422,"INVALID_INPUT","Invalid reason");goto done;}
+--- a/tests/test_api.py
++++ b/tests/test_api.py
+@@ -731,6 +731,63 @@
+         self.expect('POST', path, body, mt, key=key)
+         self.acceptance_counts(ride['id'], invitation['id'], member, owner)
+ 
++    def test_week6_cancel_after_departure_before_start(self):
++        owner, ot, member, mt, ride = self.group()
++        self.set_clock(ride['departure_at'] + 1)
++        result = self.action(ot, ride, 'cancel', reason='No departure yet')
++        self.assertEqual(result['status'], 'CANCELLED')
++        self.assertEqual(result['late_cancellation_warning'], 1)
++        with sqlite3.connect(self.folder / 'test.db') as db:
++            rows = db.execute("SELECT user_id FROM notifications WHERE ride_id=? AND content='Ride cancelled'", (ride['id'],)).fetchall()
++        self.assertEqual(sorted(x[0] for x in rows), sorted([owner, member]))
++
++    def test_week6_withdraw_warning_boundary_and_retry(self):
++        for seconds, warning in [(601, 0), (600, 1), (0, 1), (-1, 1)]:
++            with self.subTest(seconds=seconds):
++                self.set_clock(self.base_time)
++                owner, ot, member, mt, ride = self.group()
++                self.set_clock(ride['departure_at'] - seconds)
++                body = {'expected_version': ride['version'], 'reason': 'Plans changed'}
++                key = str(uuid.uuid4())
++                path = f"/api/rides/{ride['id']}/withdraw"
++                result = self.expect('POST', path, body, mt, key=key)
++                self.assertEqual(result['late_cancellation_warning'], warning)
++                self.assertEqual(result['member_count'], 1)
++                self.assertEqual(result['available_seats'], ride['capacity'] - 1)
++                self.assertEqual(result, self.expect('POST', path, body, mt, key=key))
++                with sqlite3.connect(self.folder / 'test.db') as db:
++                    self.assertEqual(db.execute("SELECT count(*) FROM notifications WHERE ride_id=? AND user_id=? AND content='A member withdrew'", (ride['id'], owner)).fetchone()[0], 1)
++
++    def test_week6_started_ride_cannot_cancel_or_withdraw(self):
++        owner, ot, member, mt, ride = self.group()
++        self.set_clock(ride['departure_at'])
++        ride = self.action(ot, ride, 'start')
++        for token, action in [(ot, 'cancel'), (mt, 'withdraw')]:
++            self.expect('POST', f"/api/rides/{ride['id']}/{action}", {'expected_version': ride['version']}, token, status=409)
++        self.assertEqual(self.ride(ot, ride['id'])['member_count'], 2)
++
++    def test_week6_backup_restore_http(self):
++        owner, ot, member, mt, ride = self.group()
++        backup = self.folder / 'restore-drill.db'
++        subprocess.run([BINARY, '--backup', str(backup)], env=self.env, check=True, capture_output=True)
++        self.server.terminate()
++        self.server.wait(timeout=10)
++        original = self.env['RIDE_DB']
++        self.env['RIDE_DB'] = str(backup)
++        try:
++            type(self).start_server()
++            restored = self.ride(ot, ride['id'])
++            self.assertEqual(restored, ride)
++            self.assertEqual(self.expect('GET', '/api/me', token=mt)['id'], member)
++            self.assertTrue(self.expect('GET', '/api/notifications', token=mt)['items'])
++            with sqlite3.connect(backup) as db:
++                self.assertEqual(db.execute('PRAGMA integrity_check').fetchone()[0], 'ok')
++        finally:
++            self.server.terminate()
++            self.server.wait(timeout=10)
++            self.env['RIDE_DB'] = original
++            type(self).start_server()
++
+     def test_z_restart_and_backup(self):
+         uid, token = self.account()
+         self.server.terminate()
+--- /dev/null
++++ b/tools/demo.py
+@@ -0,0 +1,123 @@
++import argparse
++import concurrent.futures
++import functools
++import http.server
++import json
++import platform
++from pathlib import Path
++import sqlite3
++import sys
++import threading
++import time
++
++ROOT = Path(__file__).resolve().parents[1]
++sys.path.insert(0, str(ROOT / 'tests'))
++from test_api import ApiTests
++
++
++def run_demo():
++    steps = []
++    ApiTests.setUpClass()
++    t = ApiTests()
++    t.setUp()
++    def record(title, value):
++        steps.append({'title': title, 'response': value})
++    try:
++        owner, ot = t.account()
++        member, mt = t.account()
++        record('注册与管理员审核', {'organiser_id': owner, 'passenger_id': member, 'verification': 'APPROVED'})
++        ride = t.create(ot, capacity=2)
++        rid = ride['id']
++        record('发布拼车 · 等待同伴', ride)
++        matches = t.expect('GET', f"/api/matches?origin_id=1&destination_id=2&departure_at={ride['departure_at']}", token=mt)
++        t.assertIn(rid, [x['id'] for x in matches])
++        record('按路线与时间匹配', matches)
++        invitation = t.invite(ot, ride, member)
++        record('发送邀请 · 此时不占座', invitation)
++        ride = t.accept(mt, invitation, ride)
++        record('接受邀请 · 成团并分配座位', ride)
++        fields = ('origin_id', 'destination_id', 'departure_at', 'meeting_point', 'capacity', 'tolerance_minutes', 'luggage_note')
++        revised = {k: ride[k] for k in fields}
++        revised.update(expected_version=ride['version'], meeting_point='Library entrance')
++        ride = t.expect('PATCH', f'/api/rides/{rid}', revised, ot)
++        record('修改集合点 · 等待重新确认', ride)
++        ride = t.action(mt, ride, 'reconfirm')
++        record('乘客确认新计划', ride)
++        t.set_clock(ride['departure_at'])
++        ride = t.action(ot, ride, 'start')
++        record('到达出发时间 · 发起人开始行程', ride)
++        ride = t.action(mt, ride, 'arrive')
++        record('乘客确认到达 · 等待其他成员', ride)
++        ride = t.action(ot, ride, 'arrive')
++        t.assertEqual(ride['status'], 'COMPLETED')
++        record('所有成员到达 · 行程结束', ride)
++        history = t.expect('GET', '/api/me/history', token=mt)
++        record('历史记录与通知', {'history': history, 'notifications': t.expect('GET', '/api/notifications', token=mt)})
++        return {'ok': True, 'mode': 'Real C HTTP backend; isolated demo database and simulated clock', 'steps': steps}
++    finally:
++        ApiTests.tearDownClass()
++
++
++def run_load():
++    ApiTests.setUpClass()
++    t = ApiTests(); t.setUp()
++    try:
++        uid, token = t.account()
++        for i in range(30):
++            _, owner_token = t.account()
++            t.create(owner_token, departure=t.base_time+3600+i*10)
++        path = f'/api/matches?origin_id=1&destination_id=2&departure_at={t.base_time+3600}'
++        def request(_):
++            start = time.perf_counter()
++            code, data = t.call('GET', path, token=token)
++            return (time.perf_counter()-start)*1000, code == 200 and len(data) == 30
++        start = time.perf_counter()
++        with concurrent.futures.ThreadPoolExecutor(8) as pool:
++            results = list(pool.map(request, range(400)))
++        elapsed = time.perf_counter()-start
++        times = sorted(x[0] for x in results)
++        result = {'requests': 400, 'clients': 8, 'candidate_rides': 30,
++                  'successful': sum(x[1] for x in results), 'elapsed_seconds': round(elapsed, 3),
++                  'requests_per_second': round(400/elapsed, 2), 'p50_ms': round(times[199], 2),
++                  'p95_ms': round(times[379], 2), 'p99_ms': round(times[395], 2), 'max_ms': round(times[-1], 2),
++                  'environment': platform.platform(), 'scope': 'Local loopback matching reads, single server, no TLS; not production capacity'}
++        if result['successful'] != 400:
++            raise AssertionError(result)
++        return result
++    finally:
++        ApiTests.tearDownClass()
++
++
++if __name__ == '__main__':
++    parser = argparse.ArgumentParser()
++    parser.add_argument('--serve', action='store_true')
++    parser.add_argument('--load', action='store_true')
++    args = parser.parse_args()
++    if args.serve:
++        lock = threading.Lock()
++        class Handler(http.server.SimpleHTTPRequestHandler):
++            def do_POST(self):
++                if self.path != '/run' or self.headers.get('X-Demo-Request') != '1':
++                    self.send_error(403); return
++                origin = self.headers.get('Origin', '')
++                if origin and origin not in ('http://127.0.0.1:5173', 'http://localhost:5173'):
++                    self.send_error(403); return
++                if not lock.acquire(blocking=False):
++                    self.send_error(409, 'Demo already running'); return
++                try:
++                    try:
++                        result = run_demo(); status = 200
++                    except Exception as exc:
++                        result = {'ok': False, 'error': str(exc)}; status = 500
++                    body = json.dumps(result, ensure_ascii=False).encode()
++                    self.send_response(status);self.send_header('Content-Type', 'application/json; charset=utf-8')
++                    self.send_header('Content-Length', str(len(body)));self.end_headers();self.wfile.write(body)
++                finally:
++                    lock.release()
++        print('Open http://127.0.0.1:5173 . Ctrl+C stops the demo.', flush=True)
++        http.server.ThreadingHTTPServer(('127.0.0.1', 5173), functools.partial(Handler, directory=str(ROOT/'demo'))).serve_forever()
++    else:
++        result = run_load() if args.load else run_demo()
++        name = 'LoadResults_Week6.json' if args.load else 'DemoResults_Week6.json'
++        (ROOT/'docs'/name).write_text(json.dumps(result, ensure_ascii=False, indent=2))
++        print(json.dumps(result, ensure_ascii=False, indent=2))
+--- /dev/null
++++ b/tools/reference_load.py
+@@ -0,0 +1,82 @@
++import concurrent.futures
++import json
++import platform
++import sqlite3
++import threading
++import time
++from demo import ApiTests, ROOT
++
++
++def stats(values):
++    values = sorted(values)
++    return {'count': len(values), 'p95_ms': round(values[int((len(values)-1)*.95)], 2),
++            'max_ms': round(values[-1], 2), 'within_3_seconds': sum(x <= 3000 for x in values)}
++
++
++ApiTests.setUpClass()
++t = ApiTests(); t.setUp()
++try:
++    readers = [t.account() for _ in range(20)]
++    owners = [t.account() for _ in range(30)]
++    for i, (_, token) in enumerate(owners):
++        t.create(token, departure=t.base_time+3600+i*10)
++    with sqlite3.connect(t.folder / 'test.db') as db:
++        for i in range(449):
++            db.execute("INSERT INTO users(student_id,real_name,nickname,password_hash,verify_status,created_at) SELECT ?, 'Fixture Student','Fixture',password_hash,'APPROVED',? FROM users WHERE id=?",
++                       (f'9{i:09d}', t.base_time, readers[0][0]))
++        for i in range(1970):
++            departure = t.base_time - (1970-i)*7200
++            cursor = db.execute("INSERT INTO rides(organiser_id,origin_id,destination_id,origin_name,destination_name,departure_at,meeting_point,capacity,status,created_at,updated_at,closed_at) VALUES(?,1,2,'Campus','Destination',?,'Fixture',2,'COMPLETED',?,?,?)",
++                                (owners[0][0], departure, departure-3600, departure+1800, departure+1800))
++            rid = cursor.lastrowid
++            for user, role in [(owners[0][0], 'ORGANISER'), (owners[1][0], 'MEMBER')]:
++                db.execute('INSERT INTO memberships(ride_id,user_id,member_type,consent_version,arrival_flag,joined_at) VALUES(?,?,?,1,1,?)', (rid,user,role,departure-600))
++        assert db.execute('SELECT count(*) FROM users').fetchone()[0] == 500
++        assert db.execute('SELECT count(*) FROM rides').fetchone()[0] == 2000
++        assert not db.execute('PRAGMA foreign_key_check').fetchall()
++    barrier = threading.Barrier(20)
++    def read_work(pair):
++        barrier.wait(timeout=10)
++        timings = []
++        for _ in range(25):
++            start = time.perf_counter()
++            code, result = t.call('GET', f'/api/matches?origin_id=1&destination_id=2&departure_at={t.base_time+3600}', token=pair[1])
++            assert code == 200 and len(result) == 30, (code, result)
++            timings.append((time.perf_counter()-start)*1000)
++        return timings
++    start = time.perf_counter()
++    with concurrent.futures.ThreadPoolExecutor(20) as pool:
++        reads = sum(pool.map(read_work, readers), [])
++    read_elapsed = time.perf_counter()-start
++    barrier = threading.Barrier(20)
++    def writes(i):
++        barrier.wait(timeout=10)
++        _, ot = owners[i]; member, mt = readers[i]
++        results = {}
++        start = time.perf_counter(); ride = t.create(ot, departure=t.base_time+10800); results['publish']=(time.perf_counter()-start)*1000
++        body = {k:ride[k] for k in ('origin_id','destination_id','departure_at','meeting_point','capacity','tolerance_minutes','luggage_note')}
++        body.update(expected_version=ride['version'], luggage_note='One bag')
++        start=time.perf_counter();ride=t.expect('PATCH',f"/api/rides/{ride['id']}",body,ot);results['edit']=(time.perf_counter()-start)*1000
++        start=time.perf_counter();inv=t.invite(ot,ride,member);results['invite']=(time.perf_counter()-start)*1000
++        start=time.perf_counter();t.accept(mt,inv,ride);results['confirm']=(time.perf_counter()-start)*1000
++        for token in [ot, mt]:
++            rows=t.expect('GET','/api/notifications',token=token)['items']
++            assert any(x['ride_id']==ride['id'] and x['content']=='ACCEPTED' for x in rows)
++        results['notification_visible_ms']=(time.perf_counter()-start)*1000
++        return results
++    with concurrent.futures.ThreadPoolExecutor(20) as pool:
++        writes_result=list(pool.map(writes, range(20)))
++    report={'accounts':500,'initial_rides':2000,'active_candidates':30,'historical_rides':1970,'concurrent_users':20,
++            'matching':stats(reads),'matching_elapsed_seconds':round(read_elapsed,3),
++            'core_actions':{name:stats([r[name] for r in writes_result]) for name in ['publish','edit','invite','confirm']},
++            'notification_max_ms':round(max(r['notification_visible_ms'] for r in writes_result),2),
++            'scope':'Single localhost C process, SQLite, simulated clock, no TLS or real frontend. 449 accounts and 1970 history rides inserted as declared synthetic fixtures; other setup and all measured actions use HTTP.',
++            'environment':platform.platform()}
++    report['thresholds_passed']=(report['matching']['within_3_seconds']>=475 and all(r['within_3_seconds']>=19 for r in report['core_actions'].values()) and report['notification_max_ms']<=5000)
++    (ROOT/'docs/ReferenceLoad_Week6.json').write_text(json.dumps(report,indent=2))
++    print(json.dumps(report,indent=2))
++    assert report['thresholds_passed']
++finally:
++    ApiTests.log.flush()
++    (ROOT/'docs/ReferenceLoad_Server.log').write_text((ApiTests.folder/'server.log').read_text())
++    ApiTests.tearDownClass()

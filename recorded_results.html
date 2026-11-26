@@ -1,0 +1,415 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>校园拼车系统 · 第六周运行成果</title><style>
+*{box-sizing:border-box}body{margin:0;background:#f2f5f8;color:#182d42;font:16px/1.65 system-ui,sans-serif}header{background:#122b40;color:white;padding:38px max(5vw,24px)}header p{color:#bcd1df;margin:8px 0}h1{font-size:34px;margin:4px 0}main{max-width:1100px;margin:28px auto;padding:0 24px}.tag{letter-spacing:3px;font-size:12px;color:#79debb}.bar{display:flex;align-items:center;gap:20px;flex-wrap:wrap}button{background:#087f6e;color:white;border:0;border-radius:8px;padding:14px 26px;cursor:pointer;font:inherit;font-weight:600}button:disabled{opacity:.55;cursor:wait}#status{color:#526678}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:24px 0}.stat,.step{background:white;border:1px solid #dde5eb;border-radius:12px;padding:22px}.stat strong{display:block;font-size:28px;color:#087f6e}.step{margin:14px 0;border-left:5px solid #087f6e}.step h2{font-size:19px;margin:0 0 6px}.badge{background:#e5f6ef;padding:3px 10px;border-radius:20px;color:#17634a;font-size:13px}.meta{color:#526678;font-size:14px}details{margin-top:12px}summary{cursor:pointer;color:#087f6e}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f5f8fa;padding:14px;font-size:12px;max-height:380px;overflow:auto}.note{background:#e7eef5;padding:16px 20px;border-radius:10px;font-size:14px;margin:20px 0}footer{padding:24px;color:#667989;text-align:center}@media(max-width:600px){h1{font-size:25px}.stats{grid-template-columns:1fr}}
+</style><header><div class="tag">CAMPUS RIDE / BACKEND DELIVERY</div><h1>校园拼车系统 · 运行成果</h1><p>第六周后端交付 · 2026 年 11 月 25 日</p></header><main><div class="note">这是已实际运行的后端结果展示，可离线查看。不是正在连接服务器的正式前端。代码包内的演示页可重新执行完整流程；使用独立测试数据库和模拟时间，不操作真实用户资料。</div><div class="stats"><div class="stat">功能测试<strong>47 / 47</strong></div><div class="stat">完整流程<strong>11 个步骤</strong></div><div class="stat">参考负载匹配 P95<strong>60.31 ms</strong></div></div><article class="step"><h2>本次交付了什么</h2><p>C后端源码、邀请与座位控制、取消边界修复、备份恢复验证、负载测试脚本、本地演示界面、运行与部署说明。</p><p>参考负载：500 个账号、2,000 条初始行程、20 个并发用户。匹配 500 次，核心操作 80 次；本机测试，不包含 HTTPS 或正式前端。</p></article><article class="step"><h2>01 注册与管理员审核</h2><details><summary>展开查看实际接口数据</summary><pre>{
+  &quot;organiser_id&quot;: 2,
+  &quot;passenger_id&quot;: 3,
+  &quot;verification&quot;: &quot;APPROVED&quot;
+}</pre></details></article><article class="step"><h2>02 发布拼车 · 等待同伴</h2><span class="badge">等待同伴</span><p class="meta">成员 1 人（包含发起人） · 剩余 1 个座位</p><details><summary>展开查看实际接口数据</summary><pre>{
+  &quot;id&quot;: 1,
+  &quot;organiser_id&quot;: 2,
+  &quot;origin_id&quot;: 1,
+  &quot;destination_id&quot;: 2,
+  &quot;origin_name&quot;: &quot;MUST Campus&quot;,
+  &quot;destination_name&quot;: &quot;Hengqin Port&quot;,
+  &quot;departure_at&quot;: 1800003600,
+  &quot;meeting_point&quot;: &quot;North gate&quot;,
+  &quot;capacity&quot;: 2,
+  &quot;tolerance_minutes&quot;: 15,
+  &quot;luggage_note&quot;: &quot;&quot;,
+  &quot;tags&quot;: [],
+  &quot;status&quot;: &quot;WAITING&quot;,
+  &quot;version&quot;: 1,
+  &quot;consent_version&quot;: 1,
+  &quot;created_at&quot;: 1800000000,
+  &quot;updated_at&quot;: 1800000000,
+  &quot;closed_at&quot;: null,
+  &quot;cancel_reason&quot;: &quot;&quot;,
+  &quot;organiser_nickname&quot;: &quot;Student&quot;,
+  &quot;member_count&quot;: 1,
+  &quot;available_seats&quot;: 1,
+  &quot;members&quot;: [
+    {
+      &quot;user_id&quot;: 2,
+      &quot;nickname&quot;: &quot;Student&quot;,
+      &quot;member_type&quot;: &quot;ORGANISER&quot;,
+      &quot;consent_version&quot;: 1,
+      &quot;arrival_flag&quot;: 0
+    }
+  ]
+}</pre></details></article><article class="step"><h2>03 按路线与时间匹配</h2><details><summary>展开查看实际接口数据</summary><pre>[
+  {
+    &quot;id&quot;: 1,
+    &quot;organiser_id&quot;: 2,
+    &quot;origin_id&quot;: 1,
+    &quot;destination_id&quot;: 2,
+    &quot;origin_name&quot;: &quot;MUST Campus&quot;,
+    &quot;destination_name&quot;: &quot;Hengqin Port&quot;,
+    &quot;departure_at&quot;: 1800003600,
+    &quot;meeting_point&quot;: &quot;North gate&quot;,
+    &quot;capacity&quot;: 2,
+    &quot;tolerance_minutes&quot;: 15,
+    &quot;luggage_note&quot;: &quot;&quot;,
+    &quot;tags&quot;: [],
+    &quot;status&quot;: &quot;WAITING&quot;,
+    &quot;version&quot;: 1,
+    &quot;consent_version&quot;: 1,
+    &quot;created_at&quot;: 1800000000,
+    &quot;updated_at&quot;: 1800000000,
+    &quot;closed_at&quot;: null,
+    &quot;cancel_reason&quot;: &quot;&quot;,
+    &quot;organiser_nickname&quot;: &quot;Student&quot;,
+    &quot;member_count&quot;: 1,
+    &quot;available_seats&quot;: 1,
+    &quot;time_difference_seconds&quot;: 0,
+    &quot;shared_completed_rides&quot;: 0
+  }
+]</pre></details></article><article class="step"><h2>04 发送邀请 · 此时不占座</h2><details><summary>展开查看实际接口数据</summary><pre>{
+  &quot;id&quot;: 1,
+  &quot;ride_id&quot;: 1,
+  &quot;sender_id&quot;: 2,
+  &quot;recipient_id&quot;: 3,
+  &quot;kind&quot;: &quot;INVITE&quot;,
+  &quot;status&quot;: &quot;PENDING&quot;,
+  &quot;ride_version&quot;: 1,
+  &quot;created_at&quot;: 1800000000,
+  &quot;deadline&quot;: 1800000300
+}</pre></details></article><article class="step"><h2>05 接受邀请 · 成团并分配座位</h2><span class="badge">已成团</span><p class="meta">成员 2 人（包含发起人） · 剩余 0 个座位</p><details><summary>展开查看实际接口数据</summary><pre>{
+  &quot;id&quot;: 1,
+  &quot;organiser_id&quot;: 2,
+  &quot;origin_id&quot;: 1,
+  &quot;destination_id&quot;: 2,
+  &quot;origin_name&quot;: &quot;MUST Campus&quot;,
+  &quot;destination_name&quot;: &quot;Hengqin Port&quot;,
+  &quot;departure_at&quot;: 1800003600,
+  &quot;meeting_point&quot;: &quot;North gate&quot;,
+  &quot;capacity&quot;: 2,
+  &quot;tolerance_minutes&quot;: 15,
+  &quot;luggage_note&quot;: &quot;&quot;,
+  &quot;tags&quot;: [],
+  &quot;status&quot;: &quot;CONFIRMED&quot;,
+  &quot;version&quot;: 2,
+  &quot;consent_version&quot;: 1,
+  &quot;created_at&quot;: 1800000000,
+  &quot;updated_at&quot;: 1800000000,
+  &quot;closed_at&quot;: null,
+  &quot;cancel_reason&quot;: &quot;&quot;,
+  &quot;organiser_nickname&quot;: &quot;Student&quot;,
+  &quot;member_count&quot;: 2,
+  &quot;available_seats&quot;: 0,
+  &quot;members&quot;: [
+    {
+      &quot;user_id&quot;: 2,
+      &quot;nickname&quot;: &quot;Student&quot;,
+      &quot;member_type&quot;: &quot;ORGANISER&quot;,
+      &quot;consent_version&quot;: 1,
+      &quot;arrival_flag&quot;: 0
+    },
+    {
+      &quot;user_id&quot;: 3,
+      &quot;nickname&quot;: &quot;Student&quot;,
+      &quot;member_type&quot;: &quot;MEMBER&quot;,
+      &quot;consent_version&quot;: 1,
+      &quot;arrival_flag&quot;: 0
+    }
+  ]
+}</pre></details></article><article class="step"><h2>06 修改集合点 · 等待重新确认</h2><span class="badge">等待重新确认</span><p class="meta">成员 2 人（包含发起人） · 剩余 0 个座位</p><details><summary>展开查看实际接口数据</summary><pre>{
+  &quot;id&quot;: 1,
+  &quot;organiser_id&quot;: 2,
+  &quot;origin_id&quot;: 1,
+  &quot;destination_id&quot;: 2,
+  &quot;origin_name&quot;: &quot;MUST Campus&quot;,
+  &quot;destination_name&quot;: &quot;Hengqin Port&quot;,
+  &quot;departure_at&quot;: 1800003600,
+  &quot;meeting_point&quot;: &quot;Library entrance&quot;,
+  &quot;capacity&quot;: 2,
+  &quot;tolerance_minutes&quot;: 15,
+  &quot;luggage_note&quot;: &quot;&quot;,
+  &quot;tags&quot;: [],
+  &quot;status&quot;: &quot;RECONFIRMATION_REQUIRED&quot;,
+  &quot;version&quot;: 3,
+  &quot;consent_version&quot;: 2,
+  &quot;created_at&quot;: 1800000000,
+  &quot;updated_at&quot;: 1800000000,
+  &quot;closed_at&quot;: null,
+  &quot;cancel_reason&quot;: &quot;&quot;,
+  &quot;organiser_nickname&quot;: &quot;Student&quot;,
+  &quot;member_count&quot;: 2,
+  &quot;available_seats&quot;: 0,
+  &quot;members&quot;: [
+    {
+      &quot;user_id&quot;: 2,
+      &quot;nickname&quot;: &quot;Student&quot;,
+      &quot;member_type&quot;: &quot;ORGANISER&quot;,
+      &quot;consent_version&quot;: 2,
+      &quot;arrival_flag&quot;: 0
+    },
+    {
+      &quot;user_id&quot;: 3,
+      &quot;nickname&quot;: &quot;Student&quot;,
+      &quot;member_type&quot;: &quot;MEMBER&quot;,
+      &quot;consent_version&quot;: 1,
+      &quot;arrival_flag&quot;: 0
+    }
+  ]
+}</pre></details></article><article class="step"><h2>07 乘客确认新计划</h2><span class="badge">已成团</span><p class="meta">成员 2 人（包含发起人） · 剩余 0 个座位</p><details><summary>展开查看实际接口数据</summary><pre>{
+  &quot;id&quot;: 1,
+  &quot;organiser_id&quot;: 2,
+  &quot;origin_id&quot;: 1,
+  &quot;destination_id&quot;: 2,
+  &quot;origin_name&quot;: &quot;MUST Campus&quot;,
+  &quot;destination_name&quot;: &quot;Hengqin Port&quot;,
+  &quot;departure_at&quot;: 1800003600,
+  &quot;meeting_point&quot;: &quot;Library entrance&quot;,
+  &quot;capacity&quot;: 2,
+  &quot;tolerance_minutes&quot;: 15,
+  &quot;luggage_note&quot;: &quot;&quot;,
+  &quot;tags&quot;: [],
+  &quot;status&quot;: &quot;CONFIRMED&quot;,
+  &quot;version&quot;: 4,
+  &quot;consent_version&quot;: 2,
+  &quot;created_at&quot;: 1800000000,
+  &quot;updated_at&quot;: 1800000000,
+  &quot;closed_at&quot;: null,
+  &quot;cancel_reason&quot;: &quot;&quot;,
+  &quot;organiser_nickname&quot;: &quot;Student&quot;,
+  &quot;member_count&quot;: 2,
+  &quot;available_seats&quot;: 0,
+  &quot;members&quot;: [
+    {
+      &quot;user_id&quot;: 2,
+      &quot;nickname&quot;: &quot;Student&quot;,
+      &quot;member_type&quot;: &quot;ORGANISER&quot;,
+      &quot;consent_version&quot;: 2,
+      &quot;arrival_flag&quot;: 0
+    },
+    {
+      &quot;user_id&quot;: 3,
+      &quot;nickname&quot;: &quot;Student&quot;,
+      &quot;member_type&quot;: &quot;MEMBER&quot;,
+      &quot;consent_version&quot;: 2,
+      &quot;arrival_flag&quot;: 0
+    }
+  ]
+}</pre></details></article><article class="step"><h2>08 到达出发时间 · 发起人开始行程</h2><span class="badge">行程中</span><p class="meta">成员 2 人（包含发起人） · 剩余 0 个座位</p><details><summary>展开查看实际接口数据</summary><pre>{
+  &quot;id&quot;: 1,
+  &quot;organiser_id&quot;: 2,
+  &quot;origin_id&quot;: 1,
+  &quot;destination_id&quot;: 2,
+  &quot;origin_name&quot;: &quot;MUST Campus&quot;,
+  &quot;destination_name&quot;: &quot;Hengqin Port&quot;,
+  &quot;departure_at&quot;: 1800003600,
+  &quot;meeting_point&quot;: &quot;Library entrance&quot;,
+  &quot;capacity&quot;: 2,
+  &quot;tolerance_minutes&quot;: 15,
+  &quot;luggage_note&quot;: &quot;&quot;,
+  &quot;tags&quot;: [],
+  &quot;status&quot;: &quot;IN_PROGRESS&quot;,
+  &quot;version&quot;: 5,
+  &quot;consent_version&quot;: 2,
+  &quot;created_at&quot;: 1800000000,
+  &quot;updated_at&quot;: 1800003600,
+  &quot;closed_at&quot;: null,
+  &quot;cancel_reason&quot;: &quot;&quot;,
+  &quot;organiser_nickname&quot;: &quot;Student&quot;,
+  &quot;member_count&quot;: 2,
+  &quot;available_seats&quot;: 0,
+  &quot;members&quot;: [
+    {
+      &quot;user_id&quot;: 2,
+      &quot;nickname&quot;: &quot;Student&quot;,
+      &quot;member_type&quot;: &quot;ORGANISER&quot;,
+      &quot;consent_version&quot;: 2,
+      &quot;arrival_flag&quot;: 0
+    },
+    {
+      &quot;user_id&quot;: 3,
+      &quot;nickname&quot;: &quot;Student&quot;,
+      &quot;member_type&quot;: &quot;MEMBER&quot;,
+      &quot;consent_version&quot;: 2,
+      &quot;arrival_flag&quot;: 0
+    }
+  ]
+}</pre></details></article><article class="step"><h2>09 乘客确认到达 · 等待其他成员</h2><span class="badge">行程中</span><p class="meta">成员 2 人（包含发起人） · 剩余 0 个座位</p><details><summary>展开查看实际接口数据</summary><pre>{
+  &quot;id&quot;: 1,
+  &quot;organiser_id&quot;: 2,
+  &quot;origin_id&quot;: 1,
+  &quot;destination_id&quot;: 2,
+  &quot;origin_name&quot;: &quot;MUST Campus&quot;,
+  &quot;destination_name&quot;: &quot;Hengqin Port&quot;,
+  &quot;departure_at&quot;: 1800003600,
+  &quot;meeting_point&quot;: &quot;Library entrance&quot;,
+  &quot;capacity&quot;: 2,
+  &quot;tolerance_minutes&quot;: 15,
+  &quot;luggage_note&quot;: &quot;&quot;,
+  &quot;tags&quot;: [],
+  &quot;status&quot;: &quot;IN_PROGRESS&quot;,
+  &quot;version&quot;: 6,
+  &quot;consent_version&quot;: 2,
+  &quot;created_at&quot;: 1800000000,
+  &quot;updated_at&quot;: 1800003600,
+  &quot;closed_at&quot;: null,
+  &quot;cancel_reason&quot;: &quot;&quot;,
+  &quot;organiser_nickname&quot;: &quot;Student&quot;,
+  &quot;member_count&quot;: 2,
+  &quot;available_seats&quot;: 0,
+  &quot;members&quot;: [
+    {
+      &quot;user_id&quot;: 2,
+      &quot;nickname&quot;: &quot;Student&quot;,
+      &quot;member_type&quot;: &quot;ORGANISER&quot;,
+      &quot;consent_version&quot;: 2,
+      &quot;arrival_flag&quot;: 0
+    },
+    {
+      &quot;user_id&quot;: 3,
+      &quot;nickname&quot;: &quot;Student&quot;,
+      &quot;member_type&quot;: &quot;MEMBER&quot;,
+      &quot;consent_version&quot;: 2,
+      &quot;arrival_flag&quot;: 1
+    }
+  ]
+}</pre></details></article><article class="step"><h2>10 所有成员到达 · 行程结束</h2><span class="badge">所有成员已到达，行程结束</span><p class="meta">成员 2 人（包含发起人） · 剩余 0 个座位</p><details><summary>展开查看实际接口数据</summary><pre>{
+  &quot;id&quot;: 1,
+  &quot;organiser_id&quot;: 2,
+  &quot;origin_id&quot;: 1,
+  &quot;destination_id&quot;: 2,
+  &quot;origin_name&quot;: &quot;MUST Campus&quot;,
+  &quot;destination_name&quot;: &quot;Hengqin Port&quot;,
+  &quot;departure_at&quot;: 1800003600,
+  &quot;meeting_point&quot;: &quot;Library entrance&quot;,
+  &quot;capacity&quot;: 2,
+  &quot;tolerance_minutes&quot;: 15,
+  &quot;luggage_note&quot;: &quot;&quot;,
+  &quot;tags&quot;: [],
+  &quot;status&quot;: &quot;COMPLETED&quot;,
+  &quot;version&quot;: 7,
+  &quot;consent_version&quot;: 2,
+  &quot;created_at&quot;: 1800000000,
+  &quot;updated_at&quot;: 1800003600,
+  &quot;closed_at&quot;: 1800003600,
+  &quot;cancel_reason&quot;: &quot;&quot;,
+  &quot;organiser_nickname&quot;: &quot;Student&quot;,
+  &quot;member_count&quot;: 2,
+  &quot;available_seats&quot;: 0,
+  &quot;members&quot;: [
+    {
+      &quot;user_id&quot;: 2,
+      &quot;nickname&quot;: &quot;Student&quot;,
+      &quot;member_type&quot;: &quot;ORGANISER&quot;,
+      &quot;consent_version&quot;: 2,
+      &quot;arrival_flag&quot;: 1
+    },
+    {
+      &quot;user_id&quot;: 3,
+      &quot;nickname&quot;: &quot;Student&quot;,
+      &quot;member_type&quot;: &quot;MEMBER&quot;,
+      &quot;consent_version&quot;: 2,
+      &quot;arrival_flag&quot;: 1
+    }
+  ]
+}</pre></details></article><article class="step"><h2>11 历史记录与通知</h2><details><summary>展开查看实际接口数据</summary><pre>{
+  &quot;history&quot;: [
+    {
+      &quot;id&quot;: 1,
+      &quot;organiser_id&quot;: 2,
+      &quot;origin_id&quot;: 1,
+      &quot;destination_id&quot;: 2,
+      &quot;origin_name&quot;: &quot;MUST Campus&quot;,
+      &quot;destination_name&quot;: &quot;Hengqin Port&quot;,
+      &quot;departure_at&quot;: 1800003600,
+      &quot;meeting_point&quot;: &quot;Library entrance&quot;,
+      &quot;capacity&quot;: 2,
+      &quot;tolerance_minutes&quot;: 15,
+      &quot;luggage_note&quot;: &quot;&quot;,
+      &quot;tags&quot;: [],
+      &quot;status&quot;: &quot;COMPLETED&quot;,
+      &quot;version&quot;: 7,
+      &quot;consent_version&quot;: 2,
+      &quot;created_at&quot;: 1800000000,
+      &quot;updated_at&quot;: 1800003600,
+      &quot;closed_at&quot;: 1800003600,
+      &quot;cancel_reason&quot;: &quot;&quot;,
+      &quot;organiser_nickname&quot;: &quot;Student&quot;,
+      &quot;member_count&quot;: 2,
+      &quot;available_seats&quot;: 0,
+      &quot;members&quot;: [
+        {
+          &quot;user_id&quot;: 2,
+          &quot;nickname&quot;: &quot;Student&quot;,
+          &quot;member_type&quot;: &quot;ORGANISER&quot;,
+          &quot;consent_version&quot;: 2,
+          &quot;arrival_flag&quot;: 1
+        },
+        {
+          &quot;user_id&quot;: 3,
+          &quot;nickname&quot;: &quot;Student&quot;,
+          &quot;member_type&quot;: &quot;MEMBER&quot;,
+          &quot;consent_version&quot;: 2,
+          &quot;arrival_flag&quot;: 1
+        }
+      ]
+    }
+  ],
+  &quot;notifications&quot;: {
+    &quot;unread_count&quot;: 8,
+    &quot;items&quot;: [
+      {
+        &quot;id&quot;: 15,
+        &quot;ride_id&quot;: 1,
+        &quot;content&quot;: &quot;Arrival confirmation updated&quot;,
+        &quot;is_read&quot;: 0,
+        &quot;created_at&quot;: 1800003600
+      },
+      {
+        &quot;id&quot;: 13,
+        &quot;ride_id&quot;: 1,
+        &quot;content&quot;: &quot;Arrival confirmation updated&quot;,
+        &quot;is_read&quot;: 0,
+        &quot;created_at&quot;: 1800003600
+      },
+      {
+        &quot;id&quot;: 11,
+        &quot;ride_id&quot;: 1,
+        &quot;content&quot;: &quot;Ride started&quot;,
+        &quot;is_read&quot;: 0,
+        &quot;created_at&quot;: 1800003600
+      },
+      {
+        &quot;id&quot;: 9,
+        &quot;ride_id&quot;: 1,
+        &quot;content&quot;: &quot;A member confirmed the revised plan&quot;,
+        &quot;is_read&quot;: 0,
+        &quot;created_at&quot;: 1800000000
+      },
+      {
+        &quot;id&quot;: 7,
+        &quot;ride_id&quot;: 1,
+        &quot;content&quot;: &quot;Ride changed; reconfirm the latest plan&quot;,
+        &quot;is_read&quot;: 0,
+        &quot;created_at&quot;: 1800000000
+      },
+      {
+        &quot;id&quot;: 5,
+        &quot;ride_id&quot;: 1,
+        &quot;content&quot;: &quot;ACCEPTED&quot;,
+        &quot;is_read&quot;: 0,
+        &quot;created_at&quot;: 1800000000
+      },
+      {
+        &quot;id&quot;: 3,
+        &quot;ride_id&quot;: 1,
+        &quot;content&quot;: &quot;New ride invitation&quot;,
+        &quot;is_read&quot;: 0,
+        &quot;created_at&quot;: 1800000000
+      },
+      {
+        &quot;id&quot;: 2,
+        &quot;ride_id&quot;: null,
+        &quot;content&quot;: &quot;APPROVED&quot;,
+        &quot;is_read&quot;: 0,
+        &quot;created_at&quot;: 1800000000
+      }
+    ]
+  }
+}</pre></details></article><div class="note"><strong>如何重新运行</strong><pre>make
+python3 tools/demo.py --serve</pre>在 Ubuntu / WSL 项目文件夹运行后，用浏览器访问 http://127.0.0.1:5173，点击“运行完整拼车流程”。首次安装依赖请参照 README。<br><br><strong>尚未验收：</strong>同学的正式前端联调、公网 HTTPS 部署、目标主机长期负载及全部需求门槛。演示页浏览器视觉效果未在当前环境验收，HTTP流程已验证。初次参考负载出现过连接中断，保留诊断记录，调整后进行了三次验证。</div></main><footer>C11 · SQLite · JSON HTTP API</footer></html>

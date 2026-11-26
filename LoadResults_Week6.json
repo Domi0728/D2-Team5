@@ -1,0 +1,14 @@
+{
+  "requests": 400,
+  "clients": 8,
+  "candidate_rides": 30,
+  "successful": 400,
+  "elapsed_seconds": 0.627,
+  "requests_per_second": 637.7,
+  "p50_ms": 11.91,
+  "p95_ms": 15.99,
+  "p99_ms": 19.56,
+  "max_ms": 23.23,
+  "environment": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "scope": "Local loopback matching reads, single server, no TLS; not production capacity"
+}

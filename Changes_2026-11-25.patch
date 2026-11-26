@@ -1,0 +1,143 @@
+--- a/src/rides.c
++++ b/src/rides.c
+@@ -84,6 +84,12 @@
+         out=error(r,403,"FORBIDDEN","Only the sender may withdraw; only the recipient may reply");goto done;
+     }
+     if(strcmp(s(inv,"status"),"PENDING")) {out=error(r,409,"INVITATION_CLOSED","Invitation already resolved or expired");goto done;}
++    if(ride && !strcmp(action,"accept") &&
++        (!strcmp(s(ride,"status"),"WAITING") || !strcmp(s(ride,"status"),"CONFIRMED")) &&
++        n(ride,"departure_at")>r->now && n(inv,"deadline")>r->now &&
++        n(inv,"ride_version")==n(ride,"consent_version") && member_count(ride_id)>=n(ride,"capacity")) {
++        out=error(r,409,"GROUP_FULL","No seats available; no seat was allocated");goto done;
++    }
+     if(!ride || !version_matches(r,ride)) {out=error(r,409,"STALE_VERSION","Refresh ride and retry with its current version");goto done;}
+     const char *new_status=!strcmp(action,"accept")?"ACCEPTED":!strcmp(action,"reject")?"REJECTED":"WITHDRAWN";
+     if(!strcmp(action,"accept")) {
+--- a/tests/test_api.py
++++ b/tests/test_api.py
+@@ -6,6 +6,7 @@
+ import sqlite3
+ import subprocess
+ import tempfile
++import threading
+ import time
+ import unittest
+ import urllib.error
+@@ -187,6 +188,8 @@
+         with concurrent.futures.ThreadPoolExecutor(2) as pool:
+             results = list(pool.map(respond, invites))
+         self.assertEqual(sorted(x[0] for x in results), [200, 409])
++        loser = next(result for code, result in results if code == 409)
++        self.assertEqual(loser['error']['code'], 'GROUP_FULL')
+         self.assertEqual(self.ride(ot, ride['id'])['available_seats'], 0)
+ 
+     def test_material_edit_and_reconfirmation(self):
+@@ -645,6 +648,89 @@
+         self.expect('POST',f"/api/admin/reports/{report['id']}/review",dict(action='SUSPEND',note='Reviewed'),self.admin)
+         self.assertNotIn(ride['id'],self.match_ids(st,ride['departure_at']))
+ 
++    def acceptance_counts(self, rid, iid, member, owner):
++        with sqlite3.connect(self.folder / 'test.db') as db:
++            self.assertEqual(db.execute('SELECT count(*) FROM memberships WHERE ride_id=? AND user_id=? AND active=1', (rid, member)).fetchone()[0], 1)
++            self.assertEqual(db.execute('SELECT count(*) FROM memberships WHERE ride_id=? AND active=1', (rid,)).fetchone()[0], 2)
++            self.assertEqual(db.execute('SELECT user_id FROM notifications WHERE event_key=? ORDER BY user_id', (f'invite:{iid}:ACCEPTED',)).fetchall(), [(x,) for x in sorted([member, owner])])
++            self.assertEqual(db.execute("SELECT count(*) FROM audit_logs WHERE action='invitation_decision' AND entity_id=?", (iid,)).fetchone()[0], 1)
++
++    def test_stage2_same_key_concurrent_accept(self):
++        owner, ot = self.account()
++        member, mt = self.account()
++        ride = self.create(ot, 2)
++        invitation = self.invite(ot, ride, member)
++        key = str(uuid.uuid4())
++        barrier = threading.Barrier(8)
++        path = f"/api/invitations/{invitation['id']}/respond"
++        body = {'action': 'accept', 'expected_version': ride['version']}
++        def submit(_):
++            barrier.wait(timeout=10)
++            return self.call('POST', path, body, mt, key=key)
++        with concurrent.futures.ThreadPoolExecutor(8) as pool:
++            results = list(pool.map(submit, range(8)))
++        self.assertTrue(all(code == 200 for code, _ in results), results)
++        self.assertTrue(all(result == results[0][1] for _, result in results))
++        self.acceptance_counts(ride['id'], invitation['id'], member, owner)
++        self.assertEqual(self.ride(ot, ride['id'])['available_seats'], 0)
++        self.expect('POST', path, dict(body, action='reject'), mt, status=409, key=key)
++        self.acceptance_counts(ride['id'], invitation['id'], member, owner)
++
++    def test_stage2_distinct_keys_concurrent_accept(self):
++        owner, ot = self.account()
++        member, mt = self.account()
++        ride = self.create(ot, 2)
++        invitation = self.invite(ot, ride, member)
++        barrier = threading.Barrier(8)
++        def submit(_):
++            barrier.wait(timeout=10)
++            return self.call('POST', f"/api/invitations/{invitation['id']}/respond",
++                             {'action': 'accept', 'expected_version': ride['version']}, mt)
++        with concurrent.futures.ThreadPoolExecutor(8) as pool:
++            results = list(pool.map(submit, range(8)))
++        self.assertEqual(sorted(code for code, _ in results), [200] + [409] * 7)
++        self.acceptance_counts(ride['id'], invitation['id'], member, owner)
++
++    def test_stage2_accept_retry_after_restart(self):
++        owner, ot = self.account()
++        member, mt = self.account()
++        ride = self.create(ot, 2)
++        invitation = self.invite(ot, ride, member)
++        key = str(uuid.uuid4())
++        path = f"/api/invitations/{invitation['id']}/respond"
++        body = {'action': 'accept', 'expected_version': ride['version']}
++        committed = self.expect('POST', path, body, mt, key=key)
++        self.server.terminate()
++        self.server.wait(timeout=10)
++        type(self).start_server()
++        replay = self.expect('POST', path, body, mt, key=key)
++        self.assertEqual(committed, replay)
++        self.acceptance_counts(ride['id'], invitation['id'], member, owner)
++        outsider, xt = self.account()
++        self.expect('POST', path, body, xt, status=403, key=key)
++
++    def test_stage2_accept_cache_failure_rolls_back(self):
++        owner, ot = self.account()
++        member, mt = self.account()
++        ride = self.create(ot, 2)
++        invitation = self.invite(ot, ride, member)
++        key = str(uuid.uuid4())
++        path = f"/api/invitations/{invitation['id']}/respond"
++        body = {'action': 'accept', 'expected_version': ride['version']}
++        with sqlite3.connect(self.folder / 'test.db') as db:
++            db.execute("CREATE TRIGGER fail_accept_cache BEFORE INSERT ON idempotency BEGIN SELECT RAISE(ABORT, 'injected cache failure'); END")
++        try:
++            self.expect('POST', path, body, mt, key=key, status=503)
++            with sqlite3.connect(self.folder / 'test.db') as db:
++                self.assertEqual(db.execute('SELECT status FROM invitations WHERE id=?', (invitation['id'],)).fetchone()[0], 'PENDING')
++                self.assertEqual(db.execute('SELECT count(*) FROM memberships WHERE ride_id=? AND active=1', (ride['id'],)).fetchone()[0], 1)
++                self.assertEqual(db.execute('SELECT count(*) FROM notifications WHERE event_key=?', (f"invite:{invitation['id']}:ACCEPTED",)).fetchone()[0], 0)
++        finally:
++            with sqlite3.connect(self.folder / 'test.db') as db:
++                db.execute('DROP TRIGGER fail_accept_cache')
++        self.expect('POST', path, body, mt, key=key)
++        self.acceptance_counts(ride['id'], invitation['id'], member, owner)
++
+     def test_z_restart_and_backup(self):
+         uid, token = self.account()
+         self.server.terminate()
+--- a/README.md
++++ b/README.md
+@@ -2,12 +2,15 @@
+ 
+ A C11 HTTP server for the campus carpool project. It stores accounts, rides, memberships, invitations, reports and notifications in SQLite. The frontend communicates with it through JSON requests.
+ 
+-Current update: [Matching acceptance and eligibility, 2026-11-18](docs/Progress_2026-11-18.md).
++Previous update: [Matching acceptance and eligibility, 2026-11-18](docs/Progress_2026-11-18.md).
+ Run instructions: [Run_2026-11-18.md](docs/Run_2026-11-18.md).
+ Includes [Week 5 notifications, privacy and administration](docs/Week5.md).
+ Includes [database migrations, 2026-11-11](docs/Migrations.md).
+ This continues the [Week 4 joining and ride states](docs/Week4.md) code.
+ See [Week 5 validation and remaining work](docs/Week5.md) and the earlier [acceptance ledger](docs/Progress_2026-11-11.md).
++
++Current update: [Concurrent acceptance, 2026-11-25](docs/Progress_2026-11-25.md).
++Run and API example: [Run_2026-11-25.md](docs/Run_2026-11-25.md).
+ 
+ ## Run locally
+ 

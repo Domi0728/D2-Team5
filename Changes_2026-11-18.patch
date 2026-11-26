@@ -1,0 +1,129 @@
+--- a/src/rides.c
++++ b/src/rides.c
+@@ -50,12 +50,14 @@
+             "WHERE h.status='COMPLETED' AND h.closed_at>=%lld AND a.user_id=%lld AND b.user_id=r.organiser_id AND a.active=1 AND b.active=1) AS familiarity "
+             "FROM rides r WHERE r.origin_id=%lld AND r.destination_id=%lld AND r.organiser_id<>%lld "
+             "AND r.status IN ('WAITING','CONFIRMED') AND r.departure_at>%lld "
++            "AND EXISTS(SELECT 1 FROM users u WHERE u.id=r.organiser_id AND u.role='STUDENT' "
++            "AND u.verify_status='APPROVED' AND u.suspended=0 AND coalesce(u.restriction_until,0)<=%lld) "
+             "AND (r.departure_at+28800)/86400=(%lld+28800)/86400 AND abs(r.departure_at-%lld)<=%lld "
+             "AND r.capacity-(SELECT count(*) FROM memberships m WHERE m.ride_id=r.id AND m.active=1)>=%lld "
+             "AND NOT EXISTS(SELECT 1 FROM memberships m JOIN rides x ON x.id=m.ride_id WHERE m.user_id=%lld AND m.active=1 "
+             "AND x.status IN ('WAITING','CONFIRMED','RECONFIRMATION_REQUIRED','IN_PROGRESS') AND abs(x.departure_at-r.departure_at)<%d) "
+             "ORDER BY %s LIMIT %lld OFFSET %lld",LL(departure),LL(r->now-cfg("retention_days")*86400LL),LL(n(r->user,"id")),
+-            LL(origin),LL(dest),LL(n(r->user,"id")),LL(r->now),LL(departure),LL(departure),LL(tolerance*60),LL(seats),LL(n(r->user,"id")),
++            LL(origin),LL(dest),LL(n(r->user,"id")),LL(r->now),LL(r->now),LL(departure),LL(departure),LL(tolerance*60),LL(seats),LL(n(r->user,"id")),
+             cfg("overlap_minutes")*60,!strcmp(sort,"departure")?"r.departure_at,r.id":"difference,familiarity DESC,r.created_at,r.id",LL(limit),LL(offset));
+     } else {
+         ids=query("SELECT id FROM rides WHERE status IN ('WAITING','CONFIRMED') AND departure_at>%lld ORDER BY departure_at,id LIMIT %lld OFFSET %lld",LL(r->now),LL(limit),LL(offset));
+--- a/tests/test_api.py
++++ b/tests/test_api.py
+@@ -556,6 +556,95 @@
+         self.assertTrue(all(x['actor_id']==actor for x in self.expect('GET', f'/api/admin/audit?actor_id={actor}&limit=2', token=self.admin)))
+         self.expect('GET', '/api/admin/audit?offset=-1', token=self.admin, status=422)
+ 
++    def match_ids(self, token, departure, **options):
++        from urllib.parse import urlencode
++        params = dict(origin_id=1, destination_id=2, departure_at=departure, tolerance_minutes=15)
++        params.update(options)
++        rows = self.expect('GET', '/api/matches?' + urlencode(params), token=token)
++        return [r['id'] for r in rows]
++
++    def test_stage2_match_window_and_macau_date(self):
++        seeker, st = self.account()
++        day = ((self.base_time+28800)//86400+3)*86400-28800
++        noon = day+12*3600
++        owners = [self.account() for _ in range(5)]
++        inside = self.create(owners[0][1], departure=noon+900)
++        outside = self.create(owners[1][1], departure=noon+960)
++        reverse = self.create(owners[2][1], departure=noon, origin_id=2, destination_id=1)
++        prior = self.create(owners[3][1], departure=day+86400-300)
++        next_day = self.create(owners[4][1], departure=day+86400+300)
++        ids = self.match_ids(st,noon)
++        self.assertIn(inside['id'],ids)
++        self.assertNotIn(outside['id'],ids)
++        self.assertNotIn(reverse['id'],ids)
++        self.assertNotIn(inside['id'],self.match_ids(st,noon,tolerance_minutes=14))
++        ids = self.match_ids(st,day+86400+300)
++        self.assertIn(next_day['id'],ids)
++        self.assertNotIn(prior['id'],ids)
++        self.assertNotIn(next_day['id'],self.match_ids(st,day+300,tolerance_minutes=120))
++
++    def test_stage2_match_all_sort_tiebreakers(self):
++        seeker, st = self.account()
++        owners = [self.account() for _ in range(5)]
++        departure = self.base_time+10*86400
++        rides = [self.create(t, departure=departure+(0 if i==0 else 60)) for i,(_,t) in enumerate(owners)]
++        with sqlite3.connect(self.folder/'test.db') as conn:
++            for i,ride in enumerate(rides):
++                conn.execute('UPDATE rides SET created_at=? WHERE id=?',
++                             (self.base_time+(20 if i==1 else 0),ride['id']))
++            for i in [0,1,2,3]:
++                count = 2 if i==1 else 1 if i in (2,3) else 0
++                for j in range(count):
++                    cur = conn.execute("INSERT INTO rides(organiser_id,origin_id,destination_id,origin_name,destination_name,departure_at,meeting_point,capacity,status,created_at,updated_at,closed_at) VALUES(?,1,2,'Campus','Port',?,'Gate',3,'COMPLETED',?,?,?)",
++                                       (owners[i][0],self.base_time-86400,self.base_time-86400,self.base_time-3600,self.base_time-3600))
++                    hid = cur.lastrowid
++                    for uid,kind in [(owners[i][0],'ORGANISER'),(seeker,'MEMBER')]:
++                        conn.execute('INSERT INTO memberships(ride_id,user_id,member_type,consent_version,arrival_flag,joined_at) VALUES(?,?,?,1,1,?)', (hid,uid,kind,self.base_time-86400))
++            conn.execute('UPDATE rides SET created_at=? WHERE id IN (?,?)',(self.base_time+10,rides[2]['id'],rides[3]['id']))
++        expected = [x['id'] for x in rides]
++        self.assertEqual(self.match_ids(st,departure),expected)
++        self.assertEqual(self.match_ids(st,departure,limit=2,offset=2),expected[2:4])
++        self.assertEqual(self.match_ids(st,departure),expected)
++        # Publish time precedes ID when the first two ranking keys tie.
++        with sqlite3.connect(self.folder/'test.db') as conn:
++            conn.execute('UPDATE rides SET created_at=? WHERE id=?',(self.base_time-1,rides[3]['id']))
++        self.assertEqual(self.match_ids(st,departure),[expected[0],expected[1],expected[3],expected[2],expected[4]])
++        self.assertEqual(self.match_ids(st,departure,sort='departure'),expected)
++        self.expect('GET', f'/api/matches?origin_id=1&destination_id=2&departure_at={departure}&sort=unknown',token=st,status=422)
++
++    def test_stage2_match_capacity_and_group_state(self):
++        seeker, st = self.account()
++        owner, ot, member, mt, ride = self.group(capacity=2)
++        self.assertNotIn(ride['id'],self.match_ids(st,ride['departure_at']))
++        ride = self.action(mt,ride,'withdraw')
++        self.assertIn(ride['id'],self.match_ids(st,ride['departure_at']))
++        self.assertNotIn(ride['id'],self.match_ids(st,ride['departure_at'],min_seats=2))
++        ride = self.accept(mt,self.invite(ot,ride,member),ride)
++        fields = {k:ride[k] for k in ('origin_id','destination_id','departure_at','meeting_point','capacity','tolerance_minutes','luggage_note')}
++        fields.update(expected_version=ride['version'],capacity=3,meeting_point='Changed gate')
++        ride = self.expect('PATCH',f"/api/rides/{ride['id']}",fields,ot)
++        self.assertEqual(ride['status'],'RECONFIRMATION_REQUIRED')
++        self.assertNotIn(ride['id'],self.match_ids(st,ride['departure_at']))
++        ride = self.action(mt,ride,'reconfirm')
++        self.assertIn(ride['id'],self.match_ids(st,ride['departure_at']))
++        self.action(ot,ride,'cancel')
++        self.assertNotIn(ride['id'],self.match_ids(st,ride['departure_at']))
++
++    def test_stage2_match_excludes_ineligible_organisers(self):
++        seeker, st = self.account()
++        owner, ot, member, mt, ride = self.group()
++        report = self.expect('POST','/api/reports',dict(ride_id=ride['id'],target_user_id=owner,category='OTHER',description='Incident evidence'),mt)
++        self.expect('POST',f"/api/admin/reports/{report['id']}/review",dict(action='RESTRICT',note='Reviewed',restriction_hours=1),self.admin)
++        self.assertNotIn(ride['id'],self.match_ids(st,ride['departure_at']))
++        self.expect('POST',f'/api/admin/users/{owner}/restore',{'reason':'Restriction removed'},self.admin)
++        self.assertIn(ride['id'],self.match_ids(st,ride['departure_at']))
++        self.expect('POST',f'/api/admin/users/{owner}/verify',dict(decision='REJECTED',reason='Verification withdrawn'),self.admin)
++        self.assertNotIn(ride['id'],self.match_ids(st,ride['departure_at']))
++        self.expect('POST',f'/api/admin/users/{owner}/verify',dict(decision='APPROVED',reason='Verified again'),self.admin)
++        report = self.expect('POST','/api/reports',dict(ride_id=ride['id'],target_user_id=owner,category='LATE',description='Another incident'),mt)
++        self.expect('POST',f"/api/admin/reports/{report['id']}/review",dict(action='SUSPEND',note='Reviewed'),self.admin)
++        self.assertNotIn(ride['id'],self.match_ids(st,ride['departure_at']))
++
+     def test_z_restart_and_backup(self):
+         uid, token = self.account()
+         self.server.terminate()
+--- a/README.md
++++ b/README.md
+@@ -2,7 +2,9 @@
+ 
+ A C11 HTTP server for the campus carpool project. It stores accounts, rides, memberships, invitations, reports and notifications in SQLite. The frontend communicates with it through JSON requests.
+ 
+-Current update: [Week 5 notifications, privacy and administration](docs/Week5.md).
++Current update: [Matching acceptance and eligibility, 2026-11-18](docs/Progress_2026-11-18.md).
++Run instructions: [Run_2026-11-18.md](docs/Run_2026-11-18.md).
++Includes [Week 5 notifications, privacy and administration](docs/Week5.md).
+ Includes [database migrations, 2026-11-11](docs/Migrations.md).
+ This continues the [Week 4 joining and ride states](docs/Week4.md) code.
+ See [Week 5 validation and remaining work](docs/Week5.md) and the earlier [acceptance ledger](docs/Progress_2026-11-11.md).
