@@ -104,6 +104,51 @@ int64_t now_seconds(void) {
     return (int64_t)time(NULL);
 }
 
+static void migration_failed(const char *message) {
+    execute("ROLLBACK");
+    fprintf(stderr, "%s\n", message);
+    sqlite3_close(db);
+    exit(1);
+}
+
+static void migrate(void) {
+    execute("BEGIN IMMEDIATE");
+    if (db_failed) migration_failed("Cannot acquire migration lock");
+    int has_versions = (int)scalar("SELECT count(*) FROM sqlite_master "
+        "WHERE type='table' AND name='schema_migrations'");
+    int64_t version = 0;
+    if (has_versions) {
+        version = scalar("SELECT coalesce(max(version),0) FROM schema_migrations");
+        int64_t count = scalar("SELECT count(*) FROM schema_migrations");
+        int64_t invalid = scalar("SELECT count(*) FROM schema_migrations WHERE version<1 OR version>2");
+        if (db_failed || invalid || count != version || version < 1)
+            migration_failed("Unsupported or incomplete database version; use the matching backend release");
+    } else if (scalar("SELECT count(*) FROM sqlite_master WHERE name NOT LIKE 'sqlite_%%'")) {
+        migration_failed("Unversioned non-empty database; automatic migration refused");
+    }
+    if (db_failed) migration_failed("Cannot read database version");
+    if (version == 0) {
+        for (size_t i=0;i<sizeof SCHEMA/sizeof SCHEMA[0];i++) {
+            execute("%s", SCHEMA[i]);
+            if (db_failed) migration_failed("Database migration 1 failed; changes rolled back");
+        }
+    }
+    if (version < 2) {
+        execute("CREATE INDEX session_expiry ON sessions(expires_at)");
+        execute("CREATE INDEX invitation_expiry ON invitations(deadline) WHERE status='PENDING'");
+        execute("CREATE INDEX ride_closed_at ON rides(closed_at) WHERE closed_at IS NOT NULL");
+        if (db_failed) migration_failed("Database migration 2 failed; changes rolled back");
+        execute("INSERT INTO schema_migrations(version) VALUES(2)");
+    }
+    execute("INSERT OR IGNORE INTO config VALUES"
+        "('default_tolerance_minutes',15),('max_tolerance_minutes',120),"
+        "('invite_minutes',5),('max_capacity',6),('late_cancel_minutes',10),"
+        "('overlap_minutes',60),('start_grace_minutes',30),('retention_days',90)");
+    if (db_failed) migration_failed("Database migration failed; changes rolled back");
+    execute("COMMIT");
+    if (db_failed) migration_failed("Database migration commit failed");
+}
+
 void db_init(const char *path) {
     if (sqlite3_open(path, &db) != SQLITE_OK) {
         fprintf(stderr, "Cannot open database\n");
@@ -111,11 +156,8 @@ void db_init(const char *path) {
     }
     sqlite3_busy_timeout(db, 15000);
     execute("PRAGMA foreign_keys=ON");
+    if (db_failed) migration_failed("Cannot enable database constraints");
+    migrate();
     execute("PRAGMA journal_mode=WAL");
-    for (size_t i=0;i<sizeof SCHEMA/sizeof SCHEMA[0];i++) execute("%s", SCHEMA[i]);
-    execute("INSERT OR IGNORE INTO config VALUES"
-        "('default_tolerance_minutes',15),('max_tolerance_minutes',120),"
-        "('invite_minutes',5),('max_capacity',6),('late_cancel_minutes',10),"
-        "('overlap_minutes',60),('start_grace_minutes',30),('retention_days',90)");
-    if (db_failed) { fprintf(stderr, "Database initialization failed\n"); exit(1); }
+    if (db_failed) { fprintf(stderr, "Database initialization failed\n"); sqlite3_close(db); exit(1); }
 }

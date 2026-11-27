@@ -50,12 +50,14 @@ static J *list_rides(Request *r,int search,int mine,int history) {
             "WHERE h.status='COMPLETED' AND h.closed_at>=%lld AND a.user_id=%lld AND b.user_id=r.organiser_id AND a.active=1 AND b.active=1) AS familiarity "
             "FROM rides r WHERE r.origin_id=%lld AND r.destination_id=%lld AND r.organiser_id<>%lld "
             "AND r.status IN ('WAITING','CONFIRMED') AND r.departure_at>%lld "
+            "AND EXISTS(SELECT 1 FROM users u WHERE u.id=r.organiser_id AND u.role='STUDENT' "
+            "AND u.verify_status='APPROVED' AND u.suspended=0 AND coalesce(u.restriction_until,0)<=%lld) "
             "AND (r.departure_at+28800)/86400=(%lld+28800)/86400 AND abs(r.departure_at-%lld)<=%lld "
             "AND r.capacity-(SELECT count(*) FROM memberships m WHERE m.ride_id=r.id AND m.active=1)>=%lld "
             "AND NOT EXISTS(SELECT 1 FROM memberships m JOIN rides x ON x.id=m.ride_id WHERE m.user_id=%lld AND m.active=1 "
             "AND x.status IN ('WAITING','CONFIRMED','RECONFIRMATION_REQUIRED','IN_PROGRESS') AND abs(x.departure_at-r.departure_at)<%d) "
             "ORDER BY %s LIMIT %lld OFFSET %lld",LL(departure),LL(r->now-cfg("retention_days")*86400LL),LL(n(r->user,"id")),
-            LL(origin),LL(dest),LL(n(r->user,"id")),LL(r->now),LL(departure),LL(departure),LL(tolerance*60),LL(seats),LL(n(r->user,"id")),
+            LL(origin),LL(dest),LL(n(r->user,"id")),LL(r->now),LL(r->now),LL(departure),LL(departure),LL(tolerance*60),LL(seats),LL(n(r->user,"id")),
             cfg("overlap_minutes")*60,!strcmp(sort,"departure")?"r.departure_at,r.id":"difference,familiarity DESC,r.created_at,r.id",LL(limit),LL(offset));
     } else {
         ids=query("SELECT id FROM rides WHERE status IN ('WAITING','CONFIRMED') AND departure_at>%lld ORDER BY departure_at,id LIMIT %lld OFFSET %lld",LL(r->now),LL(limit),LL(offset));
@@ -82,6 +84,12 @@ static J *invitation_decision(Request *r,int64_t id) {
         out=error(r,403,"FORBIDDEN","Only the sender may withdraw; only the recipient may reply");goto done;
     }
     if(strcmp(s(inv,"status"),"PENDING")) {out=error(r,409,"INVITATION_CLOSED","Invitation already resolved or expired");goto done;}
+    if(ride && !strcmp(action,"accept") &&
+        (!strcmp(s(ride,"status"),"WAITING") || !strcmp(s(ride,"status"),"CONFIRMED")) &&
+        n(ride,"departure_at")>r->now && n(inv,"deadline")>r->now &&
+        n(inv,"ride_version")==n(ride,"consent_version") && member_count(ride_id)>=n(ride,"capacity")) {
+        out=error(r,409,"GROUP_FULL","No seats available; no seat was allocated");goto done;
+    }
     if(!ride || !version_matches(r,ride)) {out=error(r,409,"STALE_VERSION","Refresh ride and retry with its current version");goto done;}
     const char *new_status=!strcmp(action,"accept")?"ACCEPTED":!strcmp(action,"reject")?"REJECTED":"WITHDRAWN";
     if(!strcmp(action,"accept")) {
@@ -89,7 +97,9 @@ static J *invitation_decision(Request *r,int64_t id) {
         int64_t joining=is_request?n(inv,"sender_id"):uid;
         J *student=first("SELECT * FROM users WHERE id=%lld",LL(joining));
         int eligible_student=eligible(student,r->now);json_object_put(student);
-        if(!eligible(r->user,r->now) || !eligible_student) {out=error(r,403,"INELIGIBLE","Both parties must be verified and unrestricted");goto done;}
+        J *organiser=first("SELECT * FROM users WHERE id=%lld",LL(n(ride,"organiser_id")));
+        int eligible_organiser=eligible(organiser,r->now);json_object_put(organiser);
+        if(!eligible(r->user,r->now) || !eligible_student || !eligible_organiser) {out=error(r,403,"INELIGIBLE","Both parties must be verified and unrestricted");goto done;}
         if((strcmp(s(ride,"status"),"WAITING") && strcmp(s(ride,"status"),"CONFIRMED")) || n(ride,"departure_at")<=r->now ||
             n(inv,"deadline")<=r->now || n(inv,"ride_version")!=n(ride,"consent_version")) {
             out=error(r,409,"INVITATION_INVALID","Ride changed, closed or departed");goto done;
@@ -210,7 +220,7 @@ J *ride_routes(Request *r) {
     if(!active_member(id,uid)){out=error(r,403,"FORBIDDEN","Active ride member required");goto done;}
     if(!strcmp(action,"/withdraw") || !strcmp(action,"/cancel")) {
         int cancel=!strcmp(action,"/cancel");
-        if(!prestart(ride) || n(ride,"departure_at")<=r->now){out=error(r,409,"RIDE_CLOSED","Cancellation and withdrawal require a future pre-start ride");goto done;}
+        if(!prestart(ride)){out=error(r,409,"RIDE_CLOSED","Cancellation and withdrawal require a ride that has not started");goto done;}
         if((cancel && uid!=n(ride,"organiser_id")) || (!cancel && uid==n(ride,"organiser_id"))) {out=error(r,403,"FORBIDDEN","Organiser cancels the ride; other members withdraw");goto done;}
         J *reason=NULL;
         if(json_object_object_get_ex(in,"reason",&reason) && !text_field(in,"reason",0,500)){out=error(r,422,"INVALID_INPUT","Invalid reason");goto done;}
@@ -225,6 +235,9 @@ J *ride_routes(Request *r) {
     }
     if(!strcmp(action,"/reconfirm")) {
         if(strcmp(s(ride,"status"),"RECONFIRMATION_REQUIRED") || n(ride,"departure_at")<=r->now){out=error(r,409,"INVALID_STATE","Ride does not await reconfirmation");goto done;}
+        if(scalar("SELECT consent_version FROM memberships WHERE ride_id=%lld AND user_id=%lld",LL(id),LL(uid))==n(ride,"consent_version")) {
+            out=ride_view(id,r);goto done;
+        }
         execute("UPDATE memberships SET consent_version=%lld WHERE ride_id=%lld AND user_id=%lld",LL(n(ride,"consent_version")),LL(id),LL(uid));
         update_group(id,r->now);bump(r,id);event(r,id,"reconfirm","A member confirmed the revised plan");out=ride_view(id,r);goto done;
     }
@@ -239,6 +252,10 @@ J *ride_routes(Request *r) {
         bump(r,id);event(r,id,"start","Ride started");out=ride_view(id,r);goto done;
     }
     if(!strcmp(action,"/arrive")) {
+        if(scalar("SELECT arrival_flag FROM memberships WHERE ride_id=%lld AND user_id=%lld",LL(id),LL(uid)) &&
+            (!strcmp(s(ride,"status"),"IN_PROGRESS") || !strcmp(s(ride,"status"),"COMPLETED"))) {
+            out=ride_view(id,r);goto done;
+        }
         if(strcmp(s(ride,"status"),"IN_PROGRESS")){out=error(r,409,"INVALID_STATE","Ride is not in progress");goto done;}
         execute("UPDATE memberships SET arrival_flag=1 WHERE ride_id=%lld AND user_id=%lld",LL(id),LL(uid));
         if(!scalar("SELECT count(*) FROM memberships WHERE ride_id=%lld AND active=1 AND arrival_flag=0",LL(id)))

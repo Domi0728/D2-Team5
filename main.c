@@ -93,6 +93,9 @@ int main(int argc,char **argv) {
     umask(0077);
     const char *path=getenv("RIDE_DB");if(!path)path="data/ride.db";
     mkdir("data",0700);db_init(path);
+    if(argc==2 && !strcmp(argv[1],"--migrate")) {
+        puts("Database schema version 2 ready");sqlite3_close(db);return 0;
+    }
     if(argc==3 && !strcmp(argv[1],"--create-admin")) {
         if(strlen(argv[2])<1 || strlen(argv[2])>80 || scalar("SELECT count(*) FROM users WHERE student_id=%Q",argv[2])) {fprintf(stderr,"Invalid or existing account name\n");return 1;}
         const char *password=getenv("RIDE_ADMIN_PASSWORD");if(!password)password=getpass("New administrator password: ");
@@ -111,7 +114,7 @@ int main(int argc,char **argv) {
         sqlite3_close(dest);sqlite3_close(db);if(rc!=SQLITE_DONE)return 1;puts("Backup created");return 0;
     }
     if(argc==3 && !strcmp(argv[1],"--test-clock")){test_clock_path=argv[2];fprintf(stderr,"Test clock enabled; do not use for deployment\n");}
-    else if(argc!=1){fprintf(stderr,"Usage: %s [--create-admin NAME | --seed | --backup FILE | --test-clock FILE]\n",argv[0]);return 1;}
+    else if(argc!=1){fprintf(stderr,"Usage: %s [--migrate | --create-admin NAME | --seed | --backup FILE | --test-clock FILE]\n",argv[0]);return 1;}
     const char *port_env=getenv("RIDE_PORT"),*bind=getenv("RIDE_BIND");
     char *port_end=NULL;long port=port_env?strtol(port_env,&port_end,10):8080;
     if(port<1 || port>65535 || (port_env && *port_end)){fprintf(stderr,"Invalid RIDE_PORT\n");return 1;}
@@ -120,9 +123,9 @@ int main(int argc,char **argv) {
     struct sockaddr_in addr={0};addr.sin_family=AF_INET;addr.sin_port=htons((uint16_t)port);
     if(inet_pton(AF_INET,bind,&addr.sin_addr)!=1){fprintf(stderr,"Invalid RIDE_BIND IPv4 address\n");return 1;}
     signal(SIGINT,stop_server);signal(SIGTERM,stop_server);signal(SIGPIPE,SIG_IGN);
-    struct MHD_Daemon *daemon=MHD_start_daemon(MHD_USE_INTERNAL_POLLING_THREAD,(uint16_t)port,NULL,NULL,access_request,NULL,
+    struct MHD_Daemon *daemon=MHD_start_daemon(MHD_USE_INTERNAL_POLLING_THREAD | MHD_USE_ERROR_LOG,(uint16_t)port,NULL,NULL,access_request,NULL,
         MHD_OPTION_SOCK_ADDR,(struct sockaddr *)&addr,MHD_OPTION_NOTIFY_COMPLETED,completed,NULL,
-        MHD_OPTION_CONNECTION_LIMIT,(unsigned int)64,MHD_OPTION_CONNECTION_TIMEOUT,(unsigned int)15,
+        MHD_OPTION_CONNECTION_LIMIT,(unsigned int)256,MHD_OPTION_CONNECTION_TIMEOUT,(unsigned int)15,
         MHD_OPTION_THREAD_POOL_SIZE,(unsigned int)8,MHD_OPTION_END);
     if(!daemon){fprintf(stderr,"Cannot start HTTP server\n");sqlite3_close(db);return 1;}
     printf("Campus Ride C backend: http://%s:%ld\n",bind,port);fflush(stdout);

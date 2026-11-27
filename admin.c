@@ -30,15 +30,39 @@ J *other_routes(Request *r) {
     if(get && !strcmp(r->path,"/api/settings"))return query("SELECT key,value FROM config ORDER BY key");
     if(get && !strcmp(r->path,"/api/notifications")) {
         int64_t limit=arg_number(r,"limit",50),offset=arg_number(r,"offset",0);
-        if(r->status==422 || limit<1 || limit>100 || offset<0 || offset>100000)return error(r,422,"INVALID_QUERY","Invalid pagination");
+        const char *read=arg(r,"read");
+        if(r->status==422 || limit<1 || limit>100 || offset<0 || offset>100000 ||
+            (*read && strcmp(read,"all") && strcmp(read,"unread") && strcmp(read,"read")))
+            return error(r,422,"INVALID_QUERY","Invalid pagination or read filter");
+        int filter=!strcmp(read,"unread")?0:!strcmp(read,"read")?1:-1;
         J *o=obj();jn(o,"unread_count",scalar("SELECT count(*) FROM notifications WHERE user_id=%lld AND is_read=0",LL(uid)));
-        json_object_object_add(o,"items",query("SELECT id,ride_id,content,is_read,created_at FROM notifications WHERE user_id=%lld ORDER BY id DESC LIMIT %lld OFFSET %lld",LL(uid),LL(limit),LL(offset)));return o;
+        json_object_object_add(o,"items",query("SELECT id,ride_id,content,is_read,created_at FROM notifications WHERE user_id=%lld AND (%d=-1 OR is_read=%d) ORDER BY id DESC LIMIT %lld OFFSET %lld",LL(uid),filter,filter,LL(limit),LL(offset)));return o;
+    }
+    if(post && !strcmp(r->path,"/api/notifications/read-all")) {
+        if(!fields(r,"|through_id|") || !int_field(in,"through_id",1,INT64_MAX))
+            return error(r,422,"INVALID_INPUT","through_id must be the last displayed notification ID");
+        execute("UPDATE notifications SET is_read=1 WHERE user_id=%lld AND id<=%lld AND is_read=0",LL(uid),LL(n(in,"through_id")));
+        J *o=ok();jn(o,"updated_count",sqlite3_changes(db));return o;
     }
     if(post && path_id(r->path,"/api/notifications/","/read",&id)) {
+        if(!fields(r,"|"))return error(r,422,"INVALID_INPUT","Use an empty object");
         if(!scalar("SELECT count(*) FROM notifications WHERE id=%lld AND user_id=%lld",LL(id),LL(uid)))return error(r,404,"NOT_FOUND","Notification not found");
-        execute("UPDATE notifications SET is_read=1 WHERE id=%lld",LL(id));return ok();
+        execute("UPDATE notifications SET is_read=1 WHERE id=%lld AND user_id=%lld",LL(id),LL(uid));return ok();
     }
-    if(get && !strcmp(r->path,"/api/reports"))return query("SELECT * FROM reports WHERE reporter_id=%lld ORDER BY id DESC LIMIT 200",LL(uid));
+    if(get && (!strcmp(r->path,"/api/reports") || !strcmp(r->path,"/api/admin/reports"))) {
+        int admin=!strcmp(r->path,"/api/admin/reports");
+        if(admin && !is_admin(r))return error(r,403,"FORBIDDEN","Administrator required");
+        const char *status=arg(r,"status");
+        int64_t limit=arg_number(r,"limit",200),offset=arg_number(r,"offset",0);
+        if(r->status==422 || limit<1 || limit>200 || offset<0 || offset>100000 ||
+            (*status && strcmp(status,"PENDING") && strcmp(status,"REVIEWED")))
+            return error(r,422,"INVALID_QUERY","Invalid pagination or report status");
+        return query("SELECT * FROM reports WHERE (%d=1 OR reporter_id=%lld) AND (%Q='' OR status=%Q) ORDER BY id DESC LIMIT %lld OFFSET %lld",admin,LL(uid),status,status,LL(limit),LL(offset));
+    }
+    if(get && path_id(r->path,"/api/reports/","",&id)) {
+        J *report=first("SELECT * FROM reports WHERE id=%lld AND (reporter_id=%lld OR %d=1)",LL(id),LL(uid),is_admin(r));
+        return report?report:error(r,404,"NOT_FOUND","Report not found");
+    }
     if(post && !strcmp(r->path,"/api/reports")) {
         if(strcmp(s(r->user,"role"),"STUDENT") || strcmp(s(r->user,"verify_status"),"APPROVED"))return error(r,403,"NOT_VERIFIED","Verified student required");
         const char *category=s(in,"category");
@@ -62,8 +86,13 @@ J *other_routes(Request *r) {
     }
     if(strncmp(r->path,"/api/admin/",11))return NULL;
     if(!is_admin(r))return error(r,403,"FORBIDDEN","Administrator required");
-    if(get && !strcmp(r->path,"/api/admin/audit"))return query("SELECT * FROM audit_logs ORDER BY id DESC LIMIT 200");
-    if(get && !strcmp(r->path,"/api/admin/reports"))return query("SELECT * FROM reports ORDER BY id DESC LIMIT 200");
+    if(get && !strcmp(r->path,"/api/admin/audit")) {
+        int64_t limit=arg_number(r,"limit",200),offset=arg_number(r,"offset",0),actor=arg_number(r,"actor_id",0);
+        const char *action=arg(r,"action");
+        if(r->status==422 || limit<1 || limit>200 || offset<0 || offset>100000 || actor<0 || strlen(action)>80)
+            return error(r,422,"INVALID_QUERY","Invalid audit filter or pagination");
+        return query("SELECT * FROM audit_logs WHERE (%lld=0 OR actor_id=%lld) AND (%Q='' OR action=%Q) ORDER BY id DESC LIMIT %lld OFFSET %lld",LL(actor),LL(actor),action,action,LL(limit),LL(offset));
+    }
     if(get && !strcmp(r->path,"/api/admin/locations"))return query("SELECT * FROM locations ORDER BY id");
     if(post && !strcmp(r->path,"/api/admin/locations")) {
         if(!fields(r,"|name|aliases|") || !text_field(in,"name",1,100) || !valid_aliases(in))return error(r,422,"INVALID_INPUT","name and aliases array required");
@@ -125,17 +154,28 @@ J *other_routes(Request *r) {
         audit(r,"review_report",id,s(in,"note"));json_object_put(report);return ok();
     }
     if(post && path_id(r->path,"/api/admin/users/","/restore",&id)) {
-        if(!text_field(in,"reason",1,500))return error(r,422,"INVALID_INPUT","Reason required");
+        if(!fields(r,"|reason|") || !text_field(in,"reason",1,500))return error(r,422,"INVALID_INPUT","Reason required");
         if(!scalar("SELECT count(*) FROM users WHERE id=%lld AND role='STUDENT'",LL(id)))return error(r,404,"NOT_FOUND","Student not found");
-        execute("UPDATE users SET suspended=0,restriction_until=NULL WHERE id=%lld",LL(id));audit(r,"restore_user",id,s(in,"reason"));return ok();
+        execute("UPDATE users SET suspended=0,restriction_until=NULL WHERE id=%lld",LL(id));audit(r,"restore_user",id,s(in,"reason"));
+        char key[100];snprintf(key,sizeof key,"restore:%lld:%lld",LL(id),LL(sqlite3_last_insert_rowid(db)));
+        notify(id,0,key,"Your account restrictions have been lifted",r->now);return ok();
     }
-    if(post && !strcmp(r->path,"/api/admin/maintenance")) {
+    if((get && !strcmp(r->path,"/api/admin/maintenance/preview")) ||
+       (post && !strcmp(r->path,"/api/admin/maintenance"))) {
+        if(post && !fields(r,"|"))return error(r,422,"INVALID_INPUT","Use an empty object");
         int64_t cutoff=r->now-cfg("retention_days")*86400LL;
+        J *o=ok();jn(o,"cutoff",cutoff);
+        jn(o,"eligible_notifications",scalar("SELECT count(*) FROM notifications WHERE created_at<%lld",LL(cutoff)));
+        jn(o,"eligible_reports",scalar("SELECT count(*) FROM reports WHERE status='REVIEWED' AND reviewed_at<%lld",LL(cutoff)));
+        jn(o,"eligible_rides",scalar("SELECT count(*) FROM rides WHERE status IN ('COMPLETED','CANCELLED','EXPIRED') AND closed_at<%lld AND NOT EXISTS(SELECT 1 FROM reports p WHERE p.ride_id=rides.id AND (p.status<>'REVIEWED' OR p.reviewed_at IS NULL OR p.reviewed_at>=%lld))",LL(cutoff),LL(cutoff)));
+        if(get)return o;
         execute("DELETE FROM notifications WHERE created_at<%lld",LL(cutoff));
+        jn(o,"deleted_notifications",sqlite3_changes(db));
         execute("DELETE FROM reports WHERE status='REVIEWED' AND reviewed_at<%lld",LL(cutoff));
-        execute("DELETE FROM rides WHERE closed_at<%lld AND NOT EXISTS(SELECT 1 FROM reports p WHERE p.ride_id=rides.id)",LL(cutoff));
-        int count=sqlite3_changes(db);audit(r,"retention_cleanup",0,"Removed eligible expired history; open reports retained");
-        J *o=ok();jn(o,"deleted_rides",count);return o;
+        jn(o,"deleted_reports",sqlite3_changes(db));
+        execute("DELETE FROM rides WHERE status IN ('COMPLETED','CANCELLED','EXPIRED') AND closed_at<%lld AND NOT EXISTS(SELECT 1 FROM reports p WHERE p.ride_id=rides.id)",LL(cutoff));
+        jn(o,"deleted_rides",sqlite3_changes(db));
+        audit(r,"retention_cleanup",0,json_object_to_json_string_ext(o,JSON_C_TO_STRING_PLAIN));return o;
     }
     return NULL;
 }

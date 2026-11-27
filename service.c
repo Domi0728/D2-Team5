@@ -94,6 +94,7 @@ J *handle_request(Request *r) {
     r->status=200;r->now=now_seconds();
     if(!strcmp(r->path,"/health") && !strcmp(r->method,"GET"))return ok();
     pthread_mutex_lock(&db_mutex);
+    r->now=now_seconds();
     db_failed=0;
     execute("BEGIN IMMEDIATE");maintenance(r->now);
     if(db_failed) { execute("ROLLBACK");pthread_mutex_unlock(&db_mutex);return error(r,503,"DATABASE_BUSY","Database unavailable; retry later"); }
